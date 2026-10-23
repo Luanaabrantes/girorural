@@ -97,6 +97,6 @@ registra a situação histórica ao final da etapa 1.
 
 Consulte [modelo de dados e isolamento](docs/modelo-dados-isolamento.md) para o ER,
 estados, política pública/privada, execução local, reversão e resultados dos testes.
-Suíte: 97 testes aprovados; integração MariaDB pendente por acesso negado ao Docker
+Suíte: 100 testes aprovados; integração MariaDB pendente por acesso negado ao Docker
 engine. A migração não foi aplicada ao banco externo. Esta entrega aguarda revisão
 do PR da [Issue #1](https://github.com/Luanaabrantes/girorural/issues/1), sem merge ou deploy.
