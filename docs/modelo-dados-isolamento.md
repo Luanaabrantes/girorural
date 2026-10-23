@@ -212,9 +212,10 @@ node scripts/validar-rural-mariadb.js
 
 | Verificação | Resultado em 23/10/2026 |
 | --- | --- |
-| Sintaxe dos seis arquivos JavaScript novos | Aprovada com `node --check` |
+| Sintaxe dos sete arquivos JavaScript da Issue #1 | Aprovada com `node --check` |
 | Testes novos HTTP/domínio e guardas de migração | 13 aprovados, zero falhas |
-| Suíte completa, incluindo as atividades anteriores | 97 aprovados, zero falhas |
+| Orquestração do laboratório, com Docker simulado | 3 aprovados, zero falhas; não executam MariaDB |
+| Suíte completa, incluindo as atividades anteriores | 100 aprovados, zero falhas |
 | OpenAPI catálogo/auth | Válido; nenhuma rota pública nova |
 | Integração real MariaDB / aplicação / reversão | **Não executada**: acesso ao Docker engine negado antes da criação do laboratório |
 
@@ -228,19 +229,94 @@ sem alterar os manifests versionados.
 
 ### Laboratório MariaDB reproduzível
 
-`scripts/validar-rural-mariadb.js` cria um container MariaDB 11.4 com nome exclusivo,
-sem portas publicadas, sem `.env` e sem volumes da aplicação. Um container Node 20
-compartilha somente o namespace de rede desse banco, isolado com `--network none`,
-e monta o checkout **somente para leitura**. A conexão mysql2 é real. As imagens
-são baixadas antes do isolamento. O container do banco é parado ao final e seus
-dados descartados. Requer Docker engine acessível e as dependências instaladas.
+`scripts/validar-rural-mariadb.js` prepara as dependências **Linux** do lockfile em
+volume exclusivo usando Node 20 e `npm ci --ignore-scripts`, sem depender do
+`node_modules` do Windows. Somente essa preparação e os pulls usam acesso de saída.
+Nenhum segredo ou configuração do banco da aplicação é fornecido aos containers.
+Não é preciso instalar dependências no host para executar este laboratório.
+
+Em seguida cria MariaDB 11.4 com nome aleatório, `--network none`, sem portas
+publicadas, sem `.env` e sem volumes da aplicação. A prontidão exige `SELECT 1`
+por TCP no banco `girorural_test_issue1`, evitando o servidor temporário de
+inicialização que atende por socket. O container Node dos testes compartilha apenas
+o namespace de rede desse banco. Monta somente as fontes necessárias e o volume de
+dependências para leitura (`NODE_PATH=/deps/node_modules`); não monta os
+`node_modules` ou `.env` do host. O mysql2 usará conexão real quando o teste executar.
+
+Em sucesso ou erro tratado, incluindo timeout de um processo Docker, o `finally`
+consulta e remove somente os containers com os nomes aleatórios desta execução,
+em ordem inversa, com `rm -f -v`, e remove o volume exclusivo de dependências.
+Não limpa recursos de outros projetos. A falha de limpeza gera erro explícito,
+sem ocultar a falha original nem o TAP. Interrupção forçada do Node ou queda do
+daemon pode impedir o `finally`; nesse caso inspecionar os nomes
+`girorural-issue1-<UUID>-db`, `-test`, `-deps` antes de remover apenas esses recursos.
+As imagens baixadas ficam no cache Docker; o script não executa prune.
+
+Em um terminal **autorizado a acessar o Docker Desktop**, na raiz desta branch:
+
+```powershell
+docker context show
+docker version                         # deve mostrar Client e Server
+docker image inspect mariadb:11.4 node:20-alpine # opcional: ausência dispara pull no script
+node scripts/validar-rural-mariadb.js
+```
+
+Requer Docker com containers Linux, compartilhamento de arquivos do checkout e
+rede de saída para Docker Hub/npm na preparação. Cada processo Docker tem timeout
+de até 60 s (sondagem TCP: 2 s, até 60 tentativas). Falha de download ou timeout
+permite nova tentativa após resolver a disponibilidade; não é sucesso de teste.
+Não executar o arquivo de integração manualmente com credenciais externas.
 
 O arquivo `test/rural-mariadb.integration.js`, fora do glob de `npm test`, valida:
 aplicação e reexecução da migração; FKs; unicidade; nulidade; CHECKs; `DECIMAL`;
 exclusões restritas; consultas/escritas por proprietário; tentativa de spoof;
 projeção pública; participantes de reserva; recusa da reversão com dados;
-reversão vazia, reaplicação e preservação dos usuários. O script de laboratório
-recusa iniciar os testes diretamente sem a marca de ambiente descartável.
+reversão vazia, reaplicação e preservação dos usuários. A revisão adicional inclui
+inspeção real de PKs/FKs RESTRICT/índices, contrato `usuarios.id` unsigned recusado,
+estados inválidos, projeção pública exata e falha intencional por trigger para
+verificar rollback e escrita posterior. Esses casos **ainda não foram executados**.
+O arquivo de integração recusa iniciar sem a marca de ambiente descartável e
+fecha o pool mesmo se a primeira conexão falhar.
+
+### Diagnóstico final do Docker e revisão da Issue #1 (23/10/2026)
+
+- Repositório e branch conferidos; referências atualizadas. A base publicada do
+  PR #9 era `e05f548`, com a mesma árvore do commit local testado. Nenhuma alteração
+  local foi descartada; a branch foi alinhada à história publicada antes do ajuste.
+- Docker CLI 29.2.1 disponível em `C:\Program Files\Docker\Docker\resources\bin\docker.exe`;
+  contexto selecionado `desktop-linux`. Os pipes do Desktop estão presentes.
+- `docker version` e `docker image ls` falharam com `permission denied` em
+  `npipe:////./pipe/dockerDesktopLinuxEngine`. A consulta pontual ao contexto
+  `default`, sem trocar a configuração global, recebeu a mesma recusa em
+  `npipe:////./pipe/docker_engine`.
+- Causa observável: o processo desta sessão não tem acesso à API Docker pelos
+  named pipes do Windows. A recusa ocorre antes de qualquer container do laboratório.
+  Não foi possível determinar daqui se a origem é a restrição da sessão ou a ACL
+  do host, nem certificar a saúde do Engine. Consultar o serviço
+  `com.docker.service` não o encontrou nesta sessão; isso isoladamente não prova
+  que o Desktop esteja parado. Não foram alteradas ACLs, grupos, serviços ou contextos.
+- A listagem/inspeção de imagens depende da mesma API e ficou bloqueada. Portanto
+  não foi possível confirmar a presença de `mariadb:11.4` ou `node:20-alpine`.
+- Ajustes restritos ao laboratório: dependências Linux isoladas, prontidão TCP,
+  limpeza dos recursos parcialmente criados, preservação da saída de falha,
+  fechamento do pool e ampliação dos testes de integração descritos acima.
+- A revisão pontual de autorização, IDs, SQL parametrizado, campos públicos,
+  transações e reversão não identificou defeito demonstrável que exigisse alterar
+  `src/rural/acesso.js`, `src/rural/migracoes.js`, `scripts/migrar-rural.js` ou o SQL.
+  A reversão continua exigindo exclusividade; DDL faz commit implícito e não se
+  apresenta como reversão transacional de um esquema com dados.
+- Suíte executada novamente: **100 aprovados / 0 falhas**; 13 de HTTP/domínio/guardas
+  e 3 de orquestração simulada fazem parte desse total. Sintaxe dos sete JS,
+  contratos OpenAPI catálogo/auth e `git diff --check` aprovados. As dependências
+  locais continuam vindo do mesmo lockfile, via diretório de apoio e `NODE_PATH`.
+- Tentativa real do script corrigido: **exit 1 em `docker version`**, por acesso
+  negado. **Zero casos de integração MariaDB executados**, nenhuma imagem baixada
+  pelo laboratório e nenhum recurso temporário criado nesta tentativa.
+
+Recomendação: **não aprovar o merge da Issue #1 ainda**. Executar o comando acima
+em ambiente autorizado, exigir exit 0 e revisar o TAP real antes da aprovação.
+O laboratório e seus casos adicionais estão preparados, mas testes simulados não
+certificam compatibilidade do DDL, constraints, locks ou rollback no MariaDB.
 
 **A aplicação e a reversão em MariaDB permanecem pendentes de execução real antes
 de aprovar a migração.** Não há evidência positiva inventada. Nenhuma migração foi
