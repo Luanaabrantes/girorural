@@ -74,4 +74,3 @@ Verificação: ambiente de testes Stripe, eventos duplicados e fora de ordem, as
 ## Próxima entrega recomendada
 
 Após revisão da etapa 1: somente issue 1, ajustada à arquitetura encontrada. Escopo: modelo de domínio, regras de autorização e isolamento, migrations necessárias e testes de integração entre contas. Excluir telas de anúncios, upload, busca, reservas operacionais, Stripe e deploy dessa entrega.
-
