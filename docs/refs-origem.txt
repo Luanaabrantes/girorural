@@ -1,0 +1,10 @@
+6ec77c5662f1d90f15a5a011046685243f689c63 refs/heads/atividade-3-microsservico-auth
+03f8d88ebcd2c413d841c5666d29d0aac0c661c5 refs/heads/atividade-4-rbac
+bc59912e9f429151d73b9734941e8e8d5704337f refs/heads/atividade-5-logs-auditoria
+b47bef1de6a5f97d701e1e4755d7ce6f3ddca229 refs/heads/atividade-6-perfil-upload
+1a239795551893f703cee88635cf8d811f26da83 refs/heads/atividade-7-stripe-premium
+879e25e2d087e3af0ca932365708b29b31e17341 refs/heads/atividade-8-documentacao-reversa
+0c6577452ec11940cc59339874b2dee2bb40c986 refs/heads/atividade-extra-cicd
+1926b04d53d6cfab7b340f9f80a7a6ebe1ef4220 refs/heads/atividade-extra-observabilidade
+42d396ef6c267a750287aa36122730bd527341b2 refs/heads/atividade-extra-swagger
+9c024a04b04513ac85ffecb0f6ffa99ae1c818af refs/heads/main
