@@ -6,19 +6,15 @@ Planejamento da etapa 1 em 23/10/2026. Issues #1 a #7 publicadas em https://gith
 
 Origem identificada e inspecionada: Luanaabrantes/catalogo-filmes. Consulte [a inspeção da arquitetura](inspecao-arquitetura.md) para evidências, limitações e estado Git. O espelhamento foi verificado em clone independente: 70 commits e 10 branches idênticos por SHA, sem tags e fsck sem erros. Destino público criado com Actions desativado para impedir publicação de imagens herdadas. As issues #1 a #7 estão publicadas. Documentação preparada em checkout separado, limpo antes das alterações. A publicação usa a sessão web devido à restrição de credenciais Git e do conector no novo repositório.
 
-## Conclusão da etapa 1 após acesso
+## Registro da etapa 1
 
-1. Ler AGENTS.md e instruções aplicáveis; inspecionar stack, catálogo/TMDB, autenticação, RBAC, isolamento, MariaDB, Redis, MinIO, Stripe, extras, testes, documentação e CI/CD. Registrar arquivos e evidências sem imprimir valores secretos.
-2. Inspecionar estado local sem alterar arquivos. Identificar remotos, branch padrão, branches e tags. Trabalhar em pastas separadas.
-3. Confirmar a URL exata da origem e o destino Luanaabrantes/girorural antes de espelhar. Verificar visibilidade e permissões; nunca inferir que 404 significa destino vazio.
-4. Desativar Actions no destino vazio antes do push: as branches históricas podem publicar nas imagens catalogo-filmes e atualizar latest. Se o destino não existir, criar repositório público sem README, licença ou gitignore. Confirmar ausência de referências. Fazer git clone --bare da origem e git push --mirror exclusivamente para esse destino novo e vazio. Se houver outro trabalho, parar e explicar.
-5. Se já preparado, comparar referências e ancestralidade para comprovar a origem antes de utilizá-lo. Não espelhar por cima.
-6. Antes das alterações documentais, comparar refs/heads e refs/tags por nome e SHA; comparar o conjunto completo de commits alcançáveis, com git rev-list --all ordenado, na origem e no destino. Executar git fsck --full. Documentar o tratamento de refs especiais do provedor; não declarar sucesso se faltarem branches ou tags. Registrar evidências sem credenciais.
-7. Clonar o GiroRural em outra pasta, revisar e aplicar o README e este plano com base na inspeção. Publicar as sete issues abaixo, ligando dependências por número real.
-8. Em checkout separado da origem, acrescentar somente uma linha no topo do README apontando para a URL validada do novo projeto. Verificar que o conteúdo restante foi preservado. Respeitar proteções e abrir PR se necessário.
-9. Revisar links, diff e git status; adicionar somente arquivos desta etapa explicitamente. Commit e push; verificar SHAs remotos e ancestralidade do histórico original após os novos commits documentais. Parar para revisão da usuária.
+Inspeção, criação do repositório público, espelhamento inicial e publicação da documentação e das sete issues foram realizados. O espelhamento foi verificado antes dos commits documentais: 70 commits históricos, 10 branches e nenhuma tag. Os inventários permanecem em [refs-origem.txt](refs-origem.txt) e [commits-origem.txt](commits-origem.txt).
 
-Não publicar a issue final de entrega ao professor. Não alterar código funcional, migrations, serviços, stack, domínio, Portainer, banco ou cobranças reais. Não fazer deploy.
+O espelhamento foi uma operação única para o destino então vazio. Não deve ser repetido: o GiroRural já contém trabalho documental próprio. Nenhuma branch histórica deve ser excluída ou reescrita. Actions permanece desativado para impedir a publicação de imagens herdadas.
+
+A linha de redirecionamento do catálogo original foi preparada em checkout separado e submetida no [PR #7](https://github.com/Luanaabrantes/catalogo-filmes/pull/7), com diff de uma adição e nenhuma remoção. O PR foi integrado na main em 23/10/2026, após os dois checks verificar passarem e os jobs publicar serem ignorados; merge e97feaaa1e09cf0983082f462b25b10b2f7a9894.
+
+A etapa 1 está concluída para revisão documental. A etapa 2 e a implementação da issue #1 ainda não foram iniciadas; anúncios e reservas não estão implementados. Não houve deploy ou alteração de código funcional, dependências, migrations, banco, serviços, Portainer ou Stripe nesta etapa. A issue final de entrega ao professor permanece fora desta execução.
 
 ## Issues publicadas
 
@@ -38,7 +34,7 @@ Verificação: fluxos válidos e inválidos, edição entre contas e persistênc
 
 ### [3](https://github.com/Luanaabrantes/girorural/issues/3). Fotos e arquivos
 
-Objetivo: associar fotos a anúncios usando a infraestrutura que for confirmada na inspeção.
+Objetivo: associar fotos a anúncios usando a infraestrutura MinIO e o processamento de imagens confirmados na inspeção.
 Dependências: issues 1 e 2. Reusar src/fotoPerfil.js e src/minio.js como referência, criando prefixo e vínculo de anúncios próprios.
 Critérios de aceite: validar tipo real, tamanho e quantidade; chaves de objetos não colidem; upload e exclusão exigem autorização; falhas não deixam referências inválidas; política de leitura pública ou assinada definida; credenciais não chegam ao cliente.
 Verificação: upload válido, arquivo inválido, acesso entre contas, exclusão e indisponibilidade simulada do armazenamento.
