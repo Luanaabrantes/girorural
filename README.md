@@ -132,4 +132,3 @@ Cadastro e login; anúncios de implementos com fotos, categoria, cidade, diária
 ## Planejamento e referência
 
 Consulte [o plano de implementação](docs/plano-implementacao.md). Referência do professor: [siriani](https://github.com/siriani).
-
