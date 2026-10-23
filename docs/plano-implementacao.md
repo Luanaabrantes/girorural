@@ -1,10 +1,10 @@
 # Plano de implementação — GiroRural
 
-Rascunho da etapa 1 em 23/10/2026. Issues #1 a #7 publicadas em https://github.com/Luanaabrantes/girorural/issues. Sequência adaptada ao Express, auth-service, log-service e MariaDB existentes. Não autoriza iniciar a etapa 2.
+Planejamento da etapa 1 em 23/10/2026. Issues #1 a #7 publicadas em https://github.com/Luanaabrantes/girorural/issues. Sequência adaptada ao Express, auth-service, log-service e MariaDB existentes. Não autoriza iniciar a etapa 2.
 
 ## Situação da inspeção
 
-Origem identificada e inspecionada: Luanaabrantes/catalogo-filmes. Consulte [a inspeção da arquitetura](inspecao-arquitetura.md) para evidências, limitações e estado Git. O clone bare contém 70 commits, 10 branches e nenhuma tag; ainda não houve espelhamento. Destino público criado e Actions desativado. O push aguarda acesso do Git ao Gerenciador de Credenciais do Windows; a sessão do navegador está autenticada, mas o conector retorna 403 nas escritas deste novo repositório. O checkout separado estava limpo antes das alterações documentais.
+Origem identificada e inspecionada: Luanaabrantes/catalogo-filmes. Consulte [a inspeção da arquitetura](inspecao-arquitetura.md) para evidências, limitações e estado Git. O espelhamento foi verificado em clone independente: 70 commits e 10 branches idênticos por SHA, sem tags e fsck sem erros. Destino público criado com Actions desativado para impedir publicação de imagens herdadas. As issues #1 a #7 estão publicadas. Documentação preparada em checkout separado, limpo antes das alterações. A publicação usa a sessão web devido à restrição de credenciais Git e do conector no novo repositório.
 
 ## Conclusão da etapa 1 após acesso
 

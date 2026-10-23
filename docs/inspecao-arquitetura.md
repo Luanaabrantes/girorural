@@ -22,14 +22,12 @@ npm test executa node --test em test/*.test.js, auth-service/test/*.test.js e lo
 
 ## Git e preservação
 
-Clone bare remoto concluído; git fsck --full sem erros. Encontrados 70 commits alcançáveis, 10 branches e nenhuma tag. refs-origem.txt e commits-origem.txt registram o inventário. O destino não foi espelhado: não há comprovação de preservação no destino ainda.
+Clone bare remoto concluído; git fsck --full sem erros. Encontrados 70 commits alcançáveis, 10 branches e nenhuma tag. refs-origem.txt e commits-origem.txt registram o inventário. O espelhamento foi concluído pela usuária e verificado por clone bare independente: 70 commits e 10 branches coincidem por SHA; nenhuma tag; git fsck --full sem erros. A comparação ocorreu antes das alterações documentais. Os inventários registram a base histórica preservada.
 
 Checkout separado work/girorural criado a partir da cópia local; estava limpo antes das alterações documentais. Origin desse checkout aponta para o destino proposto, evitando push acidental para o projeto antigo. Não foi fornecido checkout preexistente da usuária: não é possível certificar alterações locais de uma pasta desconhecida. Nenhum arquivo preexistente foi modificado. Não há AGENTS.md na árvore versionada de main ou na pasta da conversa.
 
-## Bloqueio e próximos passos
+## Publicação e limites
 
-Destino público criado e verificado vazio: https://github.com/Luanaabrantes/girorural. Actions desativado e confirmação Actions policy updated observada antes da tentativa de push. Issues #1 a #7 publicadas e verificadas pelo navegador.
+Destino público: https://github.com/Luanaabrantes/girorural. Actions desativado antes do espelhamento. Issues #1 a #7 publicadas e verificadas pelo navegador. A sessão web foi usada para publicar a documentação devido à indisponibilidade das credenciais Git no ambiente e erro 403 do conector para escrita no novo repositório. Nenhuma credencial foi exibida ou salva em arquivo.
 
-O push --mirror falhou antes do envio: o ambiente não consegue executar o helper Git sob as restrições de processos e a chamada direta ao Gerenciador de Credenciais do Windows retornou acesso negado. Nenhuma credencial foi exibida ou salva em arquivo. A sessão do navegador está autenticada, mas não autentica automaticamente o Git. O conector retorna 403 Resource not accessible by integration nas escritas do novo repositório; a criação das issues foi concluída pelo navegador.
-
-O script outputs/espelhar-girorural.ps1 permite executar o espelhamento no PowerShell da usuária, com verificação de destino vazio e igualdade das referências da origem. Após execução, ainda será necessário clonar o destino, comparar os commits e executar fsck; publicar os commits documentais e acrescentar somente a linha do README antigo em checkout separado, respeitando proteções. Nenhum deploy ou implementação funcional foi feito.
+Alterações autorizadas: README do GiroRural, plano, este relatório e inventários de referências/commits. Na origem, somente uma linha de redirecionamento será acrescentada no topo do README, em checkout separado e respeitando proteções. Não há mudança funcional, migration, deploy, alteração de banco, serviços ou Stripe. A etapa 2 aguarda revisão e instrução explícita.

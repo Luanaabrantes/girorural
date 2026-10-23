@@ -2,7 +2,7 @@
 
 Aluguel de máquinas e implementos entre produtores rurais.
 
-> Rascunho da etapa 1, em 23/10/2026. Ainda não publicado no GitHub. Origem inspecionada: catalogo-filmes, main em 9c024a04b04513ac85ffecb0f6ffa99ae1c818af. Publicação e espelhamento ainda pendentes. As hipóteses abaixo não representam pesquisa de campo realizada.
+> Etapa 1 — proposta e planejamento para revisão. Origem: catalogo-filmes, main em 9c024a04b04513ac85ffecb0f6ffa99ae1c818af. Histórico espelhado e verificado: 70 commits, 10 branches, nenhuma tag. Hipóteses comerciais ainda não validadas.
 
 ## 2. Dor
 
