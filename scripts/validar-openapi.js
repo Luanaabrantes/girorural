@@ -1,7 +1,7 @@
 const SwaggerParser = require('@apidevtools/swagger-parser');
 const { gerar } = require('../src/openapi');
 (async () => {
-    for (const servico of ['catalogo', 'auth']) {
+    for (const servico of ['girorural', 'auth']) {
         await SwaggerParser.validate(structuredClone(gerar(servico)));
         console.log(`${servico}: OpenAPI 3.0.3 válido`);
     }

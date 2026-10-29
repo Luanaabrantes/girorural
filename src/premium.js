@@ -3,8 +3,8 @@ const express = require('express');
  * @openapi
  * /api/premium/status:
  *   get:
- *     tags: [Premium]
- *     summary: Consultar benefício Premium confirmado pelo backend
+ *     tags: [Assinatura]
+ *     summary: Consultar plano Pro confirmado pelo backend
  *     operationId: get_api_premium_status
  *     security:
  *       - sessao: []
@@ -23,10 +23,10 @@ const express = require('express');
  *                   type: string
  *                 plano:
  *                   type: string
- *                   enum: [Gratuito, Premium]
+ *                   enum: [Gratuito, Pro]
  *                 valor_centavos:
  *                   type: integer
- *                   enum: [0, 990]
+ *                   enum: [0, 3990]
  *                 situacao:
  *                   type: string
  *                 pagamento_pendente:
@@ -49,8 +49,8 @@ const express = require('express');
  *         description: Banco, migração ou autenticação indisponível
  * /api/premium/checkout:
  *   post:
- *     tags: [Premium]
- *     summary: Abrir assinatura Stripe exclusivamente de teste por R$ 9,90/mês
+ *     tags: [Assinatura]
+ *     summary: Abrir assinatura Stripe exclusivamente de teste por R$ 39,90/mês
  *     operationId: post_api_premium_checkout
  *     description: Usuário, cliente, preço e URLs definidos no backend. Reutiliza checkout aberto; impede outra assinatura ativa ou pendente. Não recebe identificadores do navegador.
  *     security:
@@ -77,7 +77,7 @@ const express = require('express');
  *         description: Stripe não configurado, configuração de produção rejeitada ou dependência indisponível
  * /api/stripe/webhook:
  *   post:
- *     tags: [Premium]
+ *     tags: [Assinatura]
  *     summary: Receber webhook Stripe assinado de teste
  *     operationId: post_api_stripe_webhook
  *     security: []
@@ -163,8 +163,8 @@ function criarPremium({ db = require('./database'), autenticar = require('./midd
         try {
             const { stripe, price, base } = config();
             const preco = teste(await stripe.prices.retrieve(price));
-            if (!preco.active || preco.currency !== 'brl' || preco.unit_amount !== 990 || preco.recurring?.interval !== 'month' || preco.recurring.interval_count !== 1) {
-                throw new ErroPremium('O preço deve ser de teste, ativo e de R$ 9,90/mês.');
+            if (!preco.active || preco.currency !== 'brl' || preco.unit_amount !== 3990 || preco.recurring?.interval !== 'month' || preco.recurring.interval_count !== 1) {
+                throw new ErroPremium('O preço deve ser de teste, ativo e de R$ 39,90/mês.');
             }
             const usuarioId = String(req.usuario.id);
             // Persiste o cliente antes de criar qualquer assinatura remota.
@@ -195,7 +195,7 @@ function criarPremium({ db = require('./database'), autenticar = require('./midd
                     client_reference_id: usuarioId, metadata: { usuario_id: usuarioId },
                     subscription_data: { metadata: { usuario_id: usuarioId } },
                     line_items: [{ price, quantity: 1 }],
-                    success_url: `${base}/perfil.html?premium=sucesso`, cancel_url: `${base}/perfil.html?premium=cancelado`
+                    success_url: `${base}/painel.html?plano=sucesso`, cancel_url: `${base}/painel.html?plano=cancelado`
                 }, { idempotencyKey: `premium-checkout-${usuarioId}-${price}-${tentativa}` }));
                 await c.execute("UPDATE premium_assinaturas SET stripe_checkout_id = ?, stripe_subscription_id = NULL, stripe_paid_invoice_id = NULL, paid_period_start = NULL, paid_period_end = NULL, stripe_price_id = NULL, cancel_at_period_end = FALSE, cancel_at = NULL, next_renewal_at = NULL, payment_problem = FALSE, state_event_created = 0, premium = FALSE, status = 'pendente' WHERE usuario_id = ?", [session.id, usuarioId]);
                 return session.url;

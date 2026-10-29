@@ -7,11 +7,7 @@ const cookieParser = require('cookie-parser');
 // ========================================
 // ROTAS
 // ========================================
-
 const authRoutes = require('./auth');
-const filmesRoutes = require('./filmes');
-const favoritosRoutes = require('./favoritos');
-const comentariosRoutes = require('./comentarios');
 const logsRoutes = require('./logs');
 const adminRoutes = require('./admin');
 
@@ -21,7 +17,7 @@ const adminRoutes = require('./admin');
 // ========================================
 
 const app = express();
-const rotasDocumentadas = Object.entries(require('./openapi').gerar('catalogo').paths)
+const rotasDocumentadas = Object.entries(require('./openapi').gerar('girorural').paths)
     .flatMap(([rota, metodos]) => Object.keys(metodos).map(metodo => [metodo, rota]));
 const metricas = require('./metricas').criarMetricas({ rotas: rotasDocumentadas });
 app.use(metricas.middleware);
@@ -68,13 +64,13 @@ const { readiness, http } = require('./saude');
  *             schema:
  *               $ref: '#/components/schemas/Saude'
  */
-app.get('/live', (req, res) => res.json({ servico: 'catalogo', status: 'ok' }));
+app.get('/live', (req, res) => res.json({ servico: 'girorural-api', status: 'ok' }));
 /**
  * @openapi
  * /health:
  *   get:
  *     tags: [Observabilidade]
- *     summary: "Readiness: MariaDB, autenticacao, MinIO e TMDB"
+ *     summary: "Readiness: MariaDB, autenticacao e MinIO"
  *     operationId: get_health
  *     security: []
  *     responses:
@@ -91,11 +87,11 @@ app.get('/live', (req, res) => res.json({ servico: 'catalogo', status: 'ok' }));
  *             schema:
  *               $ref: '#/components/schemas/Saude'
  */
-app.get('/health', readiness('catalogo', {
+app.get('/health', readiness('girorural-api', {
     mariadb: require('./saudeBanco'),
     autenticacao: () => http(`${process.env.AUTH_SERVICE_URL}/health`),
-    minio: () => http(`${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT || 'minio'}:${process.env.MINIO_PORT || 9000}/minio/health/ready`),
-    tmdb: () => http('https://api.themoviedb.org/3/configuration', { headers: { Authorization: `Bearer ${process.env.TMDB_TOKEN}` } })
+    logService: () => http(`${process.env.LOG_SERVICE_URL}/health`),
+    minio: () => http(`${process.env.MINIO_USE_SSL === 'true' ? 'https' : 'http'}://${process.env.MINIO_ENDPOINT || 'minio'}:${process.env.MINIO_PORT || 9000}/minio/health/ready`)
 }));
 /**
  * @openapi
@@ -135,27 +131,19 @@ app.use(
     authRoutes
 );
 
-// Filmes vindos da TMDB
-app.use(
-    '/api/filmes',
-    filmesRoutes
-);
-
-// Favoritos do usuário logado
-app.use(
-    '/api/favoritos',
-    favoritosRoutes
-);
-
-// Comentários do usuário logado
-app.use(
-    '/api/comentarios',
-    comentariosRoutes
-);
+// API de equipamentos, anúncios e reservas
+app.use('/api', require('./rural/rotas').criarRotasRural());
 
 app.use('/api/logs', logsRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/perfil', require('./perfil'));
+
+app.use('/api', (req, res) => res.status(404).json({ mensagem: 'Rota não encontrada.' }));
+app.use((erro, req, res, next) => {
+    if (erro.type === 'entity.parse.failed') return res.status(400).json({ mensagem: 'JSON inválido.' });
+    if (erro.type === 'entity.too.large') return res.status(413).json({ mensagem: 'Corpo da requisição excede o limite.' });
+    console.error('Erro não tratado na API.');
+    return res.status(500).json({ mensagem: 'Erro interno do servidor.' });
+});
 
 
 // ========================================

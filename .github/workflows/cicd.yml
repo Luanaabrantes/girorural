@@ -30,18 +30,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for service in catalogo auth-service log-service minio; do
+          for service in girorural-api auth-service log-service minio; do
             context="$service"
-            if [ "$service" = catalogo ]; then context=.; fi
+            if [ "$service" = girorural-api ]; then context=.; fi
             docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "ci-$service" "$context"
             test "$(docker image inspect "ci-$service" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$GITHUB_SHA"
             docker run --rm --network none --entrypoint sh "ci-$service" -c 'test -z "$(find /app -type f \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" \) 2>/dev/null)"'
           done
-          docker run --rm --network none ci-catalogo node -e "const {gerar}=require('./src/openapi'); for(const s of ['catalogo','auth']) { if(!Object.keys(gerar(s).paths).length) process.exit(1); }"
+          docker run --rm --network none ci-girorural-api node -e "const {gerar}=require('./src/openapi'); for(const s of ['girorural','auth']) { if(!Object.keys(gerar(s).paths).length) process.exit(1); }"
           docker run --rm --network none ci-auth-service node -e "require('express');require('jsonwebtoken');require('mysql2');"
           docker run --rm --network none ci-log-service node -e "require('express');require('redis');"
           docker run --rm --network none ci-minio --version
-          docker save ci-catalogo ci-auth-service ci-log-service ci-minio -o imagens.tar
+          docker save ci-girorural-api ci-auth-service ci-log-service ci-minio -o imagens.tar
       - uses: actions/upload-artifact@v4
         if: github.event_name == 'push' && (github.ref == 'refs/heads/atividade-extra-cicd' || github.ref == 'refs/heads/atividade-7-stripe-premium')
         with:
@@ -70,8 +70,8 @@ jobs:
           set -euo pipefail
           docker load -i imagens.tar
           namespace="${GITHUB_REPOSITORY_OWNER,,}"
-          for service in catalogo auth-service log-service minio; do
-            image="ghcr.io/$namespace/catalogo-filmes-$service"
+          for service in girorural-api auth-service log-service minio; do
+            case "$service" in auth-service) image="ghcr.io/$namespace/girorural-auth-service";; log-service) image="ghcr.io/$namespace/girorural-log-service";; minio) image="ghcr.io/$namespace/girorural-minio";; girorural-api) image="ghcr.io/$namespace/girorural-api";; esac
             docker tag "ci-$service" "$image:sha-$GITHUB_SHA"
             docker push "$image:sha-$GITHUB_SHA"
             # Premium publica por SHA sem mudar a referência latest da atividade anterior.

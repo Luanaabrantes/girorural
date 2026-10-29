@@ -50,6 +50,22 @@ function criarStorage(env = process.env) {
             return chave;
         },
         async remover(chave) { await obterCliente().removeObject(bucket, validarChave(chave)); },
+        async enviarFotoAnuncio(usuarioId, buffer, formato) {
+            if (!Number.isSafeInteger(Number(usuarioId)) || Number(usuarioId) <= 0 || !['jpeg', 'png', 'webp'].includes(formato)) throw new Error('Imagem inválida');
+            await preparar();
+            const chave = `anuncios/${Number(usuarioId)}/${randomUUID()}.${formato === 'jpeg' ? 'jpg' : formato}`;
+            await obterCliente().putObject(bucket, chave, buffer, buffer.length, { 'Content-Type': `image/${formato}`, 'Cache-Control': 'private, max-age=300' });
+            return chave;
+        },
+        async lerFotoAnuncio(chave) {
+            if (!/^anuncios\/[1-9]\d*\/[0-9a-f-]{36}\.(jpg|png|webp)$/.test(chave)) throw new Error('Chave inválida');
+            await preparar();
+            return obterCliente().getObject(bucket, chave);
+        },
+        async removerFotoAnuncio(chave) {
+            if (!/^anuncios\/[1-9]\d*\/[0-9a-f-]{36}\.(jpg|png|webp)$/.test(chave)) throw new Error('Chave inválida');
+            await obterCliente().removeObject(bucket, chave);
+        },
         async lerPublico(chave) {
             validarChave(chave);
             // GET anônimo: o acesso depende da política pública do bucket.

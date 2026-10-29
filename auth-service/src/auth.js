@@ -17,7 +17,7 @@ const router = express.Router();
  *       - Auth-service
  *     summary: Cadastrar usuário
  *     description: >-
- *       Cria conta com role usuario; qualquer role enviada é ignorada. Nome e e-mail normalizados com trim;
+ *       Cria conta com papel LOCATARIO; qualquer papel enviado é ignorado. Nome e e-mail normalizados com trim;
  *       e-mail lowercase. Proxy público existente: POST /api/auth/cadastro. Teste esse proxy em /apidocs, com
  *       cookie; ele não aceita Bearer do navegador.
  *     operationId: post_auth_cadastro
@@ -43,7 +43,7 @@ const router = express.Router();
  *                 id: 1
  *                 nome: Pessoa de exemplo
  *                 email: pessoa@example.invalid
- *                 role: usuario
+ *                 role: LOCATARIO
  *       '400':
  *         description: >-
  *           Nome, e-mail e senha são obrigatórios. / A senha deve ter pelo menos 6 caracteres. JSON malformado
@@ -161,7 +161,7 @@ router.post('/cadastro', async (req, res) => {
                 nomeNormalizado,
                 emailNormalizado,
                 senhaHash,
-                'usuario'
+                'LOCATARIO'
             ]
         );
 
@@ -171,7 +171,7 @@ router.post('/cadastro', async (req, res) => {
                 id: resultado.insertId,
                 nome: nomeNormalizado,
                 email: emailNormalizado,
-                role: 'usuario'
+                role: 'LOCATARIO'
             }
         });
 

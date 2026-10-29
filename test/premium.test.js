@@ -43,7 +43,7 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
     const stripe = {
         invoices: { async retrieve(id) { return structuredClone(invoice.id === id ? invoice : history.get(id)); }, async *list() { for (const i of history.values()) yield i; } },
         webhooks: sdk.webhooks,
-        prices: { async retrieve() { return { livemode: false, active: true, currency: 'brl', unit_amount: 990, recurring: { interval: 'month', interval_count: 1 } }; } },
+        prices: { async retrieve() { return { livemode: false, active: true, currency: 'brl', unit_amount: 3990, recurring: { interval: 'month', interval_count: 1 } }; } },
         customers: { async create(data, options) { calls.push({ customer: data, options }); return { id: 'cus_fixture', livemode: false }; } },
         subscriptions: { async list() { return { data: subscriptions, has_more: false }; }, async retrieve() { return structuredClone(sub); } },
         checkout: { sessions: {
@@ -76,7 +76,7 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
         await t.test(name, async () => {
             clock=1700000000; sequence=0; history=new Map();
             row = { usuario_id: 1, premium: false, status: 'pendente', stripe_customer_id: 'cus_fixture', stripe_checkout_id: 'cs_fixture', stripe_subscription_id: null, stripe_paid_invoice_id: null };
-            invoice = { id: 'in_fixture', livemode: false, status: 'paid', amount_paid: 990, currency: 'brl', customer: 'cus_fixture', parent: { subscription_details: { subscription: 'sub_fixture' } }, lines: { data: [{ livemode:false, currency:'brl', quantity:1, pricing: { price_details: { price } }, parent:{type:'subscription_item_details',subscription_item_details:{subscription:'sub_fixture',subscription_item:'si_fixture',proration:false}}, period:{start:1699990000,end:1702592000} }], has_more: false } };
+            invoice = { id: 'in_fixture', livemode: false, status: 'paid', amount_paid: 3990, currency: 'brl', customer: 'cus_fixture', parent: { subscription_details: { subscription: 'sub_fixture' } }, lines: { data: [{ livemode:false, currency:'brl', quantity:1, pricing: { price_details: { price } }, parent:{type:'subscription_item_details',subscription_item_details:{subscription:'sub_fixture',subscription_item:'si_fixture',proration:false}}, period:{start:1699990000,end:1702592000} }], has_more: false } };
             sub = { id: 'sub_fixture', livemode: false, customer: 'cus_fixture', metadata: { usuario_id: '1' }, status: 'active', cancel_at_period_end:false, cancel_at:null, collection_method:'charge_automatically', items: { data: [{ id:'si_fixture',current_period_start:1699990000,current_period_end:1702592000,price: { id: price }, quantity: 1 }], has_more: false }, latest_invoice: invoice };
             checkout = { id: 'cs_fixture', livemode: false, status: 'complete', subscription: 'sub_fixture', customer: 'cus_fixture', client_reference_id: '1', url: 'https://checkout.stripe.com/fixture' };
             events = new Set(); subscriptions = []; calls = []; fail = false; commits = 0;
@@ -97,7 +97,7 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
         assert.equal(r.status, 200); assert.equal((await r.json()).url, checkout.url);
         const data = calls.find(c => c.data).data;
         assert.equal(data.client_reference_id, '1'); assert.equal(data.mode, 'subscription'); assert.equal(data.line_items[0].price, price);
-        assert.equal(data.subscription_data.metadata.usuario_id, '1'); assert.equal(data.success_url, 'http://localhost:3000/perfil.html?premium=sucesso'); assert.equal(row.premium, false);
+        assert.equal(data.subscription_data.metadata.usuario_id, '1'); assert.equal(data.success_url, 'http://localhost:3000/painel.html?plano=sucesso'); assert.equal(row.premium, false);
     });
     await caso('reutiliza checkout aberto', async () => {
         checkout.status = 'open';

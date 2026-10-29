@@ -52,7 +52,7 @@ formLogin.addEventListener('submit', async (evento) => {
             'mensagem-sucesso';
 
         window.location.href =
-            '/catalogo.html';
+            '/anuncios.html';
 
     } catch (erro) {
 

@@ -259,18 +259,19 @@ router.patch('/usuarios/:id/role', verificarAutenticacao, exigirAdmin('ALTERAR_R
         return res.status(400).json({ mensagem: 'ID do usuário inválido.' });
     }
     const role = req.body?.role;
-    if (role !== 'usuario' && role !== 'admin') {
-        return res.status(400).json({ mensagem: 'Role deve ser usuario ou admin.' });
+    if (!['usuario', 'admin', 'LOCATARIO', 'PROPRIETARIO', 'ADMIN'].includes(role)) {
+        return res.status(400).json({ mensagem: 'Role deve ser ADMIN, PROPRIETARIO ou LOCATARIO.' });
     }
+    const rolePersistido = role === 'ADMIN' ? 'admin' : role;
     try {
-        const resultado = await alterarRole(req.usuario.id, id, role);
+        const resultado = await alterarRole(req.usuario.id, id, rolePersistido);
         // A transação e a conexão já foram encerradas antes de chamar HTTP.
         if (resultado.alterado) {
             await registrarEventoAuditoria({
                 usuarioId: req.usuario.id,
                 acao: 'ROLE_ALTERADA',
                 ip: req.ip,
-                detalhes: { usuario_alvo_id: id, role_anterior: resultado.roleAnterior, role_nova: role }
+                detalhes: { usuario_alvo_id: id, role_anterior: resultado.roleAnterior, role_nova: rolePersistido }
             });
         }
         res.json({

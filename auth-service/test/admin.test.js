@@ -128,7 +128,7 @@ test('gestão administrativa e regressão da autenticação', async t => {
         });
         await caso('IDs e roles inválidos: 400 sem transação ou auditoria', async () => {
             for (const id of ['0', '-1', '1.5', 'abc', '9007199254740992', '1e0']) assert.equal((await patch(token(1), id, 'admin')).status, 400);
-            for (const role of ['ADMIN', 'user', 'administrador', 'superadmin', null, '', {}, undefined]) assert.equal((await patch(token(1), 3, role)).status, 400);
+            for (const role of ['user', 'administrador', 'superadmin', null, '', {}, undefined]) assert.equal((await patch(token(1), 3, role)).status, 400);
             assert.equal(updates + eventos.length + liberacoes, 0);
         });
         await caso('usuário inexistente: 404 e rollback', async () => {
@@ -182,9 +182,9 @@ test('gestão administrativa e regressão da autenticação', async t => {
         });
         await caso('cadastro ignora role admin; login e validar preservados', async () => {
             const c = await request('POST', '/auth/cadastro', null, { nome: 'Novo', email: 'novo@example.invalid', senha, role: 'admin' });
-            assert.equal(c.status, 201); assert.equal(c.body.usuario.role, 'usuario');
+            assert.equal(c.status, 201); assert.equal(c.body.usuario.role, 'LOCATARIO');
             const login = await request('POST', '/auth/login', null, { email: 'novo@example.invalid', senha });
-            assert.equal(login.status, 200); assert.ok(login.body.token); assert.equal(login.body.usuario.role, 'usuario');
+            assert.equal(login.status, 200); assert.ok(login.body.token); assert.equal(login.body.usuario.role, 'LOCATARIO');
             assert.equal(eventos[0].acao, 'LOGIN');
             const bearer = login.body.token;
             usuarios.find(u => u.id === c.body.usuario.id).role = 'admin';

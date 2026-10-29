@@ -19,6 +19,8 @@ async function aplicar(c) {
     // Arquivo estático do repositório, sem parâmetros externos/interpolação.
     // mysql2 deve ser configurado com multipleStatements para esta conexão CLI.
     await c.query(sql);
+    const atividade10 = fs.readFileSync(path.join(__dirname, '../../database/migracao-girorural-atividade10.sql'), 'utf8');
+    await c.query(atividade10);
 }
 async function reverterVazio(c) {
     // Exige exclusividade de manutenção: DDL MariaDB faz commit implícito.

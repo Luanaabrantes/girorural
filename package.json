@@ -1,5 +1,5 @@
 {
-  "name": "catalogo-filmes",
+  "name": "girorural-api",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -13,7 +13,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.19.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

@@ -134,7 +134,7 @@ router.get('/', verificarAutenticacao, async (req, res) => {
 
     try {
         const destino = new URL(`${process.env.LOG_SERVICE_URL}/eventos`);
-        const parametros = new URL(req.originalUrl, 'http://catalogo').searchParams;
+        const parametros = new URL(req.originalUrl, 'http://girorural-api').searchParams;
         for (const valor of parametros.getAll('limit')) {
             destino.searchParams.append('limit', valor);
         }

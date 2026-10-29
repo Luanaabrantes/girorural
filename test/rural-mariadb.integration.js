@@ -32,11 +32,12 @@ test('MariaDB real descartavel: esquema, isolamento e reversao', async t => {
             assert.equal(pks.length, 3);
             const [fks] = await c.query(`SELECT DELETE_RULE, UPDATE_RULE FROM information_schema.REFERENTIAL_CONSTRAINTS
                 WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME IN ('equipamentos','anuncios','reservas')`);
-            assert.equal(fks.length, 4);
+            assert.equal(fks.length, 5);
             for (const fk of fks) { assert.equal(fk.DELETE_RULE, 'RESTRICT'); assert.equal(fk.UPDATE_RULE, 'RESTRICT'); }
             for (const [tabela, indice, colunas] of [
                 ['equipamentos', 'idx_equipamento_proprietario', 'proprietario_id,estado'],
                 ['anuncios', 'uq_anuncio_equipamento', 'equipamento_id'],
+                ['anuncios', 'idx_anuncio_proprietario_estado', 'proprietario_id,estado'],
                 ['reservas', 'idx_reserva_solicitante', 'solicitante_id,id'],
                 ['reservas', 'idx_reserva_anuncio_periodo', 'anuncio_id,inicio,fim,estado']
             ]) {
@@ -47,14 +48,14 @@ test('MariaDB real descartavel: esquema, isolamento e reversao', async t => {
             }
         });
         await c.query(`INSERT INTO equipamentos (id,proprietario_id,nome,categoria) VALUES (10,1,'Arado','Solo'),(20,2,'Grade','Solo');
-            INSERT INTO anuncios (id,equipamento_id,diaria,cidade,uf,estado) VALUES (100,10,50.00,'Piloto','SP','ativo'),(101,20,60.00,'Piloto','SP','rascunho');
+            INSERT INTO anuncios (id,equipamento_id,proprietario_id,diaria,cidade,uf,estado) VALUES (100,10,1,50.00,'Piloto','SP','ativo'),(101,20,2,60.00,'Piloto','SP','rascunho');
             INSERT INTO reservas (id,anuncio_id,solicitante_id,inicio,fim) VALUES (1000,100,2,'2026-11-01','2026-11-03');`);
         await t.test('FKs, nulidade, unicidade, dinheiro e periodo', async () => {
             for (const sql of [
                 "INSERT INTO equipamentos (proprietario_id,nome,categoria) VALUES (999,'X','Solo')",
                 "INSERT INTO equipamentos (proprietario_id,nome,categoria) VALUES (NULL,'X','Solo')",
-                "INSERT INTO anuncios (equipamento_id,diaria,cidade,uf) VALUES (999,1,'Piloto','SP')",
-                "INSERT INTO anuncios (equipamento_id,diaria,cidade,uf) VALUES (10,1,'Piloto','SP')",
+                "INSERT INTO anuncios (equipamento_id,proprietario_id,diaria,cidade,uf) VALUES (999,1,1,'Piloto','SP')",
+                "INSERT INTO anuncios (equipamento_id,proprietario_id,diaria,cidade,uf) VALUES (10,1,1,'Piloto','SP')",
                 "INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim) VALUES (999,2,'2026-11-01','2026-11-02')",
                 "INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim) VALUES (100,999,'2026-11-01','2026-11-02')",
                 "INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim) VALUES (100,2,'2026-11-03','2026-11-01')",

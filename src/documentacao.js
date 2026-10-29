@@ -2,13 +2,13 @@ const swaggerUi = require('swagger-ui-express');
 const { gerar } = require('./openapi');
 
 function instalarDocumentacao(app) {
-    const catalogo = gerar('catalogo');
+    const girorural = gerar('girorural');
     const auth = gerar('auth');
-    app.get('/openapi/catalogo.json', (req, res) => res.json(catalogo));
+    app.get('/openapi/girorural.json', (req, res) => res.json(girorural));
     app.get('/openapi/auth.json', (req, res) => res.json(auth));
     // serveFiles evita compartilhar a configuração entre as duas instâncias.
     const opcoes = {
-        customSiteTitle: 'Catálogo — Swagger/OpenAPI',
+        customSiteTitle: 'GiroRural — Swagger/OpenAPI',
         swaggerOptions: { validatorUrl: null, persistAuthorization: false, withCredentials: true },
     };
     const opcoesAuth = {
@@ -17,7 +17,7 @@ function instalarDocumentacao(app) {
     };
     // A rota mais específica precisa preceder /apidocs.
     app.use('/apidocs/auth', swaggerUi.serveFiles(auth, opcoesAuth), swaggerUi.setup(auth, opcoesAuth));
-    app.use('/apidocs', swaggerUi.serveFiles(catalogo, opcoes), swaggerUi.setup(catalogo, opcoes));
+    app.use('/apidocs', swaggerUi.serveFiles(girorural, opcoes), swaggerUi.setup(girorural, opcoes));
 }
 
 module.exports = instalarDocumentacao;

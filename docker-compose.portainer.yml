@@ -1,6 +1,6 @@
 services:
-  catalogo:
-    image: ghcr.io/luanaabrantes/catalogo-filmes-catalogo:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
+  girorural-api:
+    image: ghcr.io/luanaabrantes/girorural-api:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
 
     ports:
       - "8216:3000"
@@ -16,7 +16,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_NAME: ${DB_NAME}
 
-      TMDB_TOKEN: ${TMDB_TOKEN}
 
       MINIO_ENDPOINT: minio
       MINIO_PORT: 9000
@@ -46,7 +45,7 @@ services:
       start_period: 20s
 
   auth-service:
-    image: ghcr.io/luanaabrantes/catalogo-filmes-auth-service:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
+    image: ghcr.io/luanaabrantes/girorural-auth-service:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
 
     expose:
       - "3001"
@@ -69,7 +68,7 @@ services:
       MAIL_PASS: ${MAIL_PASS}
       MAIL_FROM: ${MAIL_FROM}
 
-      CATALOGO_URL: https://luana-abrantes-isw055.lapps.studio
+      GIRO_RURAL_URL: https://luana-abrantes-isw055.lapps.studio
 
     dns:
       - 8.8.8.8
@@ -88,7 +87,7 @@ services:
       start_period: 20s
 
   minio:
-    image: ghcr.io/luanaabrantes/catalogo-filmes-minio:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
+    image: ghcr.io/luanaabrantes/girorural-minio:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
     command: server /data --console-address ':9001'
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?Defina MINIO_ACCESS_KEY}
@@ -123,7 +122,7 @@ services:
       - catalogo-network
 
   log-service:
-    image: ghcr.io/luanaabrantes/catalogo-filmes-log-service:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
+    image: ghcr.io/luanaabrantes/girorural-log-service:${IMAGE_TAG:?Defina IMAGE_TAG como sha-hash completo do commit}
     environment:
       PORT: 3002
       REDIS_URL: redis://redis:6379

@@ -1,102 +1,130 @@
 # GiroRural
 
-Aluguel de máquinas e implementos entre produtores rurais.
+Plataforma SaaS para aproximar produtores rurais que oferecem máquinas e implementos daqueles que precisam alugá-los. O GiroRural organiza anúncios e solicitações de reserva; o pagamento do aluguel é combinado diretamente entre proprietário e locatário.
 
-> Etapa 1 — proposta e planejamento para revisão. Origem: catalogo-filmes, main em 9c024a04b04513ac85ffecb0f6ffa99ae1c818af. Histórico espelhado e verificado: 70 commits, 10 branches, nenhuma tag. Hipóteses comerciais ainda não validadas.
+Professor da atividade ISW055: [@siriani](https://github.com/siriani). Esta branch prepara a atividade “Seu negócio no ar”; não representa uma publicação em produção.
 
-## 2. Dor
+## Funcionalidades
 
-Hipótese: pequenos produtores de uma cidade e arredores precisam de implementos em períodos específicos, mas encontram dificuldade para localizar equipamentos disponíveis e combinar condições. Isso pode gerar atrasos e esforço de negociação. Hoje podem recorrer a contatos pessoais, grupos de mensagens e locadoras locais. A frequência e o impacto dessa dor precisam ser validados com produtores da região piloto, ainda indefinida.
+- Landing page pública, busca pública por cidade e categoria e detalhes públicos sem dados de conta.
+- Cadastro e gerenciamento de equipamentos e anúncios por proprietários, com desativação lógica e upload de foto no MinIO.
+- Solicitações de reserva por período, consulta das próprias solicitações e aprovação/recusa pelo proprietário. Períodos confirmados sobrepostos são recusados com bloqueio transacional do anúncio.
+- Administração de papéis e consulta de auditoria no painel administrativo existente, adaptado ao GiroRural.
+- Limites aplicados na API: Gratuito até 2 anúncios ativos; Pro até 20. Assinatura Stripe apenas em modo de teste e validada pelo preço configurado.
+- A API não aceita `usuario_id` do cliente para decidir autoria. Recursos privados alheios retornam 404; papel autenticado sem permissão recebe 403; ausência de sessão recebe 401.
 
-## 3. Persona ilustrativa
+## Estado real da entrega
 
-José, produtor fictício de uma pequena propriedade, precisa de um implemento por alguns dias e consulta vizinhos por telefone. Quer conhecer a diária, a cidade, as condições de retirada e a disponibilidade antes de solicitar uma reserva. Esta persona é ilustrativa; não resulta de entrevista.
+O código da atividade está em revisão local na branch `atividade-10-girorural-no-ar`. O repositório remoto contém uma fundação anterior para migração e isolamento, que foi reutilizada. Nenhuma alteração foi enviada, integrada à `main`, publicada no Portainer ou usada para criar a issue final.
 
-## 4. Concorrentes ou alternativas
+O checkout local original estava vazio. A branch foi montada sobre `feature/issue-1-modelo-dados-isolamento`, que traz a fundação não integrada da Issue #1. O histórico Git foi mantido.
 
-Alternativas a investigar no piloto, sem comparação de preços ou participação de mercado:
+Limitações desta etapa: a integração real com MariaDB, MinIO e Redis depende de executar os serviços isolados localmente; não se considera um teste controlado como prova desses serviços. O relatório de execução desta branch deve registrar as verificações que forem realmente executadas. Relatórios e prints de etapas antigas estão em [documentação histórica](docs/historico/README.md).
 
-| Alternativa | Como pode atender à necessidade | Hipótese a validar |
-| --- | --- | --- |
-| Grupos de WhatsApp e contatos pessoais | Aproximar produtores para negociar diretamente | Dificuldade de consultar disponibilidade e histórico |
-| Locadoras locais de equipamentos agrícolas | Consultar oferta e condições com uma empresa | Cobertura de implementos e alcance na cidade |
-| Cooperativas e associações de produtores | Intermediar contatos ou compartilhamento de equipamentos | Existência de oferta e regras de acesso no piloto |
+## Arquitetura
 
-## 5. Proposta de valor
+```mermaid
+flowchart LR
+  U[Produtor no navegador] --> WEB[Frontend HTML/CSS/JS]
+  WEB --> API[API Express]
+  API --> AUTH[auth-service\nJWT + RBAC]
+  API --> DB[(MariaDB\nusuários + domínio + assinaturas)]
+  API --> OBJ[(MinIO\nfotos de equipamentos)]
+  API --> LOG[log-service]
+  LOG --> REDIS[(Redis Stream\nauditoria)]
+  API --> STRIPE[Stripe Checkout e webhook\nambiente de teste]
+```
 
-Reunir anúncios de implementos próximos com diária, condições e solicitações por período, permitindo ao proprietário controlar reservas e ao interessado encontrar uma opção local. A diferenciação e a adesão são hipóteses a validar.
+O banco MariaDB é externo ao `docker-compose.yml` existente. Redis, MinIO, API, auth-service e log-service permanecem serviços de apoio da stack. As fotos de anúncios ficam sob chaves privadas `anuncios/<usuario>/<uuid>.<formato>`; a API serve fotos somente quando o anúncio está ativo ou o proprietário autenticado é o dono.
 
-## 6. Modelo de receita com Stripe
+## Papéis e permissões
 
-O aluguel será negociado e pago diretamente entre os envolvidos. O Stripe cobrará somente a assinatura de uso da plataforma.
-
-Hipóteses de planos: Free com até 2 anúncios ativos; Pro por R$ 39,90/mês, até 20 anúncios ativos e relatório de locações. Preço, limites e disposição a pagar ainda serão validados. Esta etapa não configura cobranças reais. A integração herdada é de teste e valida preço fixo de R$ 9,90; planos e limites GiroRural exigem adaptação futura.
-
-## 7. Métricas de sucesso
-
-Metas propostas para os primeiros 60 dias de um piloto futuro; não são resultados obtidos:
-
-| Métrica | Definição | Meta hipotética |
-| --- | --- | --- |
-| Oferta ativa | Anúncios ativos de implementos na região piloto | 20 |
-| Ativação de anunciantes | Contas que publicam anúncio / contas cadastradas com intenção de anunciar | 40% |
-| Conversão em solicitação | Usuários que solicitam reserva / usuários que visualizam anúncio, no período | 15% |
-| Conclusão | Reservas concluídas / reservas confirmadas com término no período | 70% |
-| Conflitos confirmados | Pares de reservas confirmadas sobrepostas do mesmo equipamento | 0 |
-| Interesse no Pro | Anunciantes que declaram interesse / anunciantes consultados, registrando tamanho da amostra | 20% |
-
-Definir eventos, consentimentos e método de coleta antes do piloto. Não há linha de base disponível.
-
-## 8. Lean Canvas
-
-| Bloco | Hipóteses a validar |
+| Papel de negócio | Permissões |
 | --- | --- |
-| Problema | Encontrar implementos próximos, consultar períodos e organizar acordos |
-| Segmentos de clientes | Pequenos produtores de uma cidade e arredores; proprietários com implementos disponíveis |
-| Proposta única de valor | Implementos próximos com condições claras e reservas organizadas |
-| Solução | Anúncios, busca local e solicitações com aprovação e bloqueio de conflitos |
-| Canais | Associações, cooperativas, indicação e grupos locais, a validar |
-| Fontes de receita | Assinatura Pro via Stripe; sem intermediação do pagamento do aluguel |
-| Estrutura de custos | Hospedagem, armazenamento, operação, suporte e processamento da assinatura; valores não estimados |
-| Métricas-chave | Oferta ativa, ativação, solicitações, conclusão, conflitos e interesse no Pro |
-| Vantagem injusta | Ainda não demonstrada; hipótese de construir rede de confiança e densidade local |
+| `ADMIN` | Gerenciar papéis por `/api/admin/usuarios`, consultar auditoria em `/api/logs`; não ignora propriedade dos registros. |
+| `PROPRIETARIO` | Criar equipamentos e anúncios; editar, desativar e enviar foto somente aos próprios anúncios; consultar pedidos recebidos e aprovar ou recusar solicitações. |
+| `LOCATARIO` | Ler anúncios ativos; pedir, consultar e cancelar as próprias reservas. |
 
-## Mapa de reaproveitamento
+Novas contas recebem `LOCATARIO`, independente do campo `role` enviado no cadastro. Um administrador pode atribuir `PROPRIETARIO`. A conta legada `usuario` é tratada como `LOCATARIO`; `admin` é preservado para compatibilidade e equivale a `ADMIN` no domínio. O sistema não altera automaticamente os papéis das contas existentes.
 
-Inspeção estática da branch main da origem; não comprova o estado dos serviços publicados. Detalhes em [inspeção da arquitetura](docs/inspecao-arquitetura.md).
+## Dados e migrações
 
-| Área | O que existe no código | Reaproveitar / desenvolver |
-| --- | --- | --- |
-| Catálogo / TMDB | Express e frontend HTML/CSS/JS; src/filmes.js consulta pessoa e créditos de Tom Hanks, sem persistir filmes | Reaproveitar organização de rotas e interface; criar catálogo próprio de equipamentos sem remover filmes nesta etapa |
-| Login / RBAC | auth-service, JWT de 8h, cookie HttpOnly, bcrypt, recuperação SMTP, papéis usuario/admin consultados no banco | Reaproveitar identidade; definir autorização por equipamento e reserva; não há modelo de organizações/tenants |
-| Logs / Redis | log-service com Redis Stream auditoria, leitura administrativa e AOF | Ampliar eventos de negócio; Redis não implementa disponibilidade ou bloqueio de reservas |
-| Upload / MinIO | Fotos de perfil, Multer e Sharp, validação de formato e 5 MB, UUID, objetos no prefixo perfis | Reaproveitar processamento; criar vínculo e regras de fotos de anúncios, sem copiar política pública indiscriminadamente |
-| Assinatura / Stripe | Checkout de teste, webhook assinado antes do parser JSON, transações, deduplicação e período pago | Adaptar preço fixo de R$ 9,90, benefícios e limites Free/Pro; não há limites de anúncios ou relatório de locações |
-| MariaDB | mysql2; usuários, favoritos, comentários, perfis, recuperação e assinatura; banco externo ao Compose | Criar modelo de equipamentos e reservas e proteção transacional de conflitos em entrega posterior |
-| Extras existentes | OpenAPI, health/liveness, métricas Prometheus, painel admin, testes Node e CI/CD de imagens | Preservar; atualizar documentação e testes por pequena entrega |
+| Tabela | Relações e principais campos |
+| --- | --- |
+| `equipamentos` | Proprietário (`usuarios.id`), nome, categoria, marca, modelo, ano, descrição, chave de imagem e estado. |
+| `anuncios` | Equipamento, proprietário (`usuarios.id`), diária `DECIMAL(10,2)`, cidade, UF, condições e estado. Um anúncio por equipamento. |
+| `reservas` | Anúncio, solicitante (`usuarios.id`), período, estado e datas. Índices para consultas por solicitante e período; chaves estrangeiras `RESTRICT`. |
 
-## Escopo proposto do MVP
+As migrações aditivas não apagam nem recriam tabelas de autenticação, assinaturas ou dados existentes:
 
-Cadastro e login; anúncios de implementos com fotos, categoria, cidade, diária e condições; busca e filtros; solicitação por período; aprovação, recusa, cancelamento e conclusão; prevenção de sobreposição de reservas confirmadas; painel e histórico; limites Free/Pro e assinatura da plataforma. A região piloto será definida. Não inclui pagamento do aluguel pela plataforma nem deploy nesta entrega.
+1. `database/migracao-girorural-issue1.sql` cria o domínio base.
+2. `database/migracao-girorural-atividade10.sql` acrescenta marca/modelo/ano/imagem, proprietário no anúncio, índices e FK.
+3. `scripts/migrar-rural.js` valida `usuarios.id` e aplica as duas migrações somente em banco local `girorural_dev_*` ou `girorural_test_*` usando variáveis `GIRO_DEV_DB_*`. O script não lê `.env` nem `DB_*`.
+4. `database/seed-girorural.sql` é opcional e idempotente. Em uma sessão SQL local, defina `@giro_owner_id` para uma conta `PROPRIETARIO` antes de executá-lo; seed não atualiza dados existentes.
 
-## Estado da entrega
+As migrações de autenticação e Stripe herdadas (`migracao-atividade3.sql`, `migracao-atividade6.sql`, `migracao-atividade7.sql` e `migracao-atividade7-periodo.sql`) ainda são pré-requisitos do ambiente completo. A migração de atividade 3 pressupõe uma tabela `usuarios` já existente, cujo DDL original não está neste repositório. Para reverter o domínio local, pare os escritores, confirme manutenção exclusiva e use `node scripts/migrar-rural.js --reverter --manutencao-exclusiva`; a reversão só remove tabelas do domínio quando estão vazias.
 
-O repositório GiroRural está criado e publicado. Os 70 commits históricos e as 10 branches foram preservados, conforme comparação de SHAs e verificação de integridade. As [sete issues](https://github.com/Luanaabrantes/girorural/issues) estão publicadas. A etapa 1 está concluída para revisão; a etapa 2 ainda não foi iniciada. Anúncios e reservas ainda não foram implementados. Nenhum deploy foi realizado nesta etapa. O GitHub Actions permanece desativado no GiroRural.
+## Endpoints principais
 
-## Planejamento e referência
+| Método e rota | Acesso |
+| --- | --- |
+| `GET /api/anuncios`, `GET /api/anuncios/:id` | Público; somente anúncios e equipamentos ativos. Filtros `cidade`, `categoria`, `pagina`, `limite` (máximo 50). |
+| `POST /api/equipamentos`, `GET /api/equipamentos/meus` | `PROPRIETARIO`. |
+| `POST /api/anuncios`, `GET /api/anuncios/meus`, `PUT /api/anuncios/:id`, `DELETE /api/anuncios/:id` | `PROPRIETARIO`; `DELETE` desativa. |
+| `POST /api/anuncios/:id/foto`, `GET /api/anuncios/:id/foto` | Proprietário autenticado para upload; leitura pública de anúncio ativo ou privada para o dono. JPEG, PNG ou WebP de até 5 MB. |
+| `POST /api/reservas`, `GET /api/reservas/minhas`, `GET /api/reservas/:id`, `POST /api/reservas/:id/cancelar` | `LOCATARIO`; consulta individual só para solicitante ou proprietário do anúncio. |
+| `GET /api/reservas/recebidas`, `PATCH /api/reservas/:id` | `PROPRIETARIO`; o corpo de decisão aceita `confirmada` ou `recusada`. |
+| `GET /api/admin/usuarios`, `PATCH /api/admin/usuarios/:id/role`, `GET /api/logs` | `ADMIN` legado/administrador. |
+| `GET /health`, `GET /live`, `GET /metrics`, `GET /apidocs/` | Saúde, liveness, métricas e OpenAPI. Auth-service tem documentação interna em `/apidocs/auth/`. |
 
-Consulte [o plano de implementação](docs/plano-implementacao.md) e [a inspeção da arquitetura](docs/inspecao-arquitetura.md). Referência do professor: [siriani](https://github.com/siriani).
+## Execução local
 
-## Etapa 2 — fundação da Issue #1
+Requisitos: Node.js 20+, MariaDB local com a tabela `usuarios` compatível com `INT` assinado como chave primária e Docker com Engine Linux para o laboratório integrado. Redis e MinIO são levantados pelo Compose local.
 
-Esta branch acrescenta a fundação interna de equipamentos, anúncios e reservas,
-com migração aditiva e autorização por proprietário. Uma conta equivale a um usuário;
-`admin` não ignora a propriedade. Não há novas telas, rotas públicas, CRUD completo,
-upload, busca, reservas operacionais ou cobrança. A seção “Estado da entrega” acima
-registra a situação histórica ao final da etapa 1.
+```powershell
+npm install
+npm install --prefix auth-service
+npm install --prefix log-service
+Copy-Item .env.example .env
+Copy-Item auth-service/.env.example auth-service/.env
+```
 
-Consulte [modelo de dados e isolamento](docs/modelo-dados-isolamento.md) para o ER,
-estados, política pública/privada, execução local, reversão e resultados dos testes.
-Suíte: 100 testes aprovados; integração MariaDB pendente por acesso negado ao Docker
-engine. A migração não foi aplicada ao banco externo. Esta entrega aguarda revisão
-do PR da [Issue #1](https://github.com/Luanaabrantes/girorural/issues/1), sem merge ou deploy.
+Preencha os arquivos locais com credenciais de desenvolvimento. Não use credenciais de produção. Configure `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`, `MINIO_ACCESS_KEY` e `MINIO_SECRET_KEY`. Inicie a infraestrutura e a aplicação:
+
+```powershell
+docker compose up --build
+```
+
+O Compose não cria MariaDB; configure uma instância local compatível e aplique primeiro as migrações legadas necessárias, depois `node scripts/migrar-rural.js --aplicar`. A CLI rural só aceita host loopback e nomes de banco `girorural_dev_*` ou `girorural_test_*`.
+
+Para habilitar Pro localmente, configure chaves Stripe `sk_test_`, `STRIPE_PRICE_ID` apontando para um preço recorrente ativo de **R$ 39,90 BRL por mês**, `STRIPE_WEBHOOK_SECRET` de teste e `APP_BASE_URL` local. O preço antigo de R$ 9,90 não é usado como preço GiroRural. Nenhuma cobrança de aluguel passa pelo Stripe.
+
+## Testes e evidências
+
+Verificações disponíveis:
+
+```powershell
+npm test
+npm run docs:validate
+node scripts/validar-rural-mariadb.js
+```
+
+`npm test` executa a suíte automatizada da aplicação. `validar-rural-mariadb.js` cria um banco MariaDB isolado em containers descartáveis; requer Docker Desktop autorizado a executar containers Linux. Testes com duplos de API não substituem uma integração real com MariaDB, Redis ou MinIO. A seção de [evidências da atividade](docs/evidencias/atividade-10/README.md) lista as capturas ainda necessárias; nenhum print de produção é fabricado.
+
+## Portainer após aprovação
+
+Use a **stack já existente** e o arquivo `docker-compose.portainer.yml`; não crie uma stack nova. O template mantém o mapeamento `8216:3000`, o mesmo subdomínio `https://luana-abrantes-isw055.lapps.studio`, a rede `catalogo-network`, os volumes nomeados `minio-data` e `audit-redis-data`, e MariaDB externo. A service key da API passa a `girorural-api`; a aplicação anterior será substituída na mesma stack após aprovação. O Compose não declara limite de memória; o limite atual de 1 GB por container precisa ser confirmado na configuração real do Portainer antes da atualização e preservado.
+
+Procedimento planejado, não executado nesta branch: (1) apontar a stack existente para `https://github.com/Luanaabrantes/girorural.git` e o branch/commit aprovado; (2) selecionar `docker-compose.portainer.yml`; (3) configurar a origem das quatro imagens `ghcr.io/luanaabrantes/girorural-{api,auth-service,log-service,minio}` e `IMAGE_TAG=sha-<commit>` verificado; (4) preservar secrets, rede, subdomínio, porta, limites e volumes atuais; (5) atualizar a stack existente e confirmar health checks. Se os pacotes GHCR forem privados, manter/configurar as credenciais de registry já autorizadas. Remover `TMDB_TOKEN` do Portainer somente depois da revisão e em uma alteração aprovada separada. Nenhuma configuração do Portainer foi alterada.
+
+## Limitações conhecidas
+
+- O endereço público e estado de publicação continuam pendentes de aprovação e deploy.
+- Relatórios Pro de locações não foram implementados.
+- A concorrência de conflito deve ser validada no MariaDB real pelo laboratório; Redis não é usado como mecanismo de integridade.
+- A fundação de migração tem pré-requisito de usuários existente. O seed cria um equipamento demonstrativo apenas para proprietário escolhido localmente.
+- O conteúdo do catálogo antigo permanece no histórico Git e em documentos de rastreabilidade, mas seus endpoints e telas não fazem parte da aplicação atual.
+
+## URL pública
+
+Pendente de validação após deploy autorizado: `<URL a preencher após publicação>`.

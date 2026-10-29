@@ -1,5 +1,5 @@
 services:
-  catalogo:
+  girorural-api:
     build:
       context: .
       dockerfile: Dockerfile
@@ -28,7 +28,7 @@ services:
       - auth-service
 
     networks:
-      - catalogo-network
+      - girorural-network
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health', {signal: AbortSignal.timeout(3000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 5s
@@ -55,7 +55,7 @@ services:
       - 1.1.1.1
 
     networks:
-      - catalogo-network
+      - girorural-network
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/health', {signal: AbortSignal.timeout(3000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 5s
@@ -82,7 +82,7 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - catalogo-network
+      - girorural-network
 
   redis:
     image: redis:7.4-alpine
@@ -97,7 +97,7 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - catalogo-network
+      - girorural-network
 
   log-service:
     build:
@@ -113,7 +113,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - catalogo-network
+      - girorural-network
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health', {signal: AbortSignal.timeout(3000)}).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 5s
@@ -126,5 +126,5 @@ volumes:
   audit-redis-data:
 
 networks:
-  catalogo-network:
+  girorural-network:
     driver: bridge

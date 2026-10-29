@@ -135,12 +135,12 @@ router.post('/esqueci-senha', async (req, res) => {
         );
 
         const linkRecuperacao =
-            `${process.env.CATALOGO_URL}/redefinir-senha.html?token=${token}`;
+            `${process.env.GIRO_RURAL_URL || 'http://localhost:3000'}/redefinir-senha.html?token=${token}`;
 
         await mailer.sendMail({
             from: process.env.MAIL_FROM,
             to: usuario.email,
-            subject: 'Redefinição de senha - Catálogo de Filmes',
+            subject: 'Redefinição de senha - GiroRural',
             text:
                 `Olá, ${usuario.nome}.\n\n` +
                 `Recebemos uma solicitação para redefinir sua senha.\n\n` +

@@ -3,19 +3,7 @@ const assert = require('node:assert/strict');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 
-// Nenhuma conexão com MySQL: regressões usam respostas locais controladas.
-const dbPath = require.resolve('../src/database');
-require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: {
-    async execute(sql) {
-        if (sql.includes('INSERT')) return [{ insertId: 7 }];
-        if (sql.includes('DELETE')) return [{ affectedRows: 1 }];
-        if (sql.includes('FROM favoritos')) return [[{ tmdb_movie_id: 42 }]];
-        if (sql.includes('FROM comentarios')) return [[{ id: 7, usuario_id: 1, texto: 'Teste', tmdb_movie_id: 42 }]];
-        throw new Error('SQL inesperado');
-    }
-} };
-
-test('proxy administrativo e regressão das rotas do catálogo', async t => {
+test('administração, autenticação e auditoria do GiroRural', async t => {
     const env = { AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL, LOG_SERVICE_URL: process.env.LOG_SERVICE_URL };
     process.env.AUTH_SERVICE_URL = 'http://auth.test';
     process.env.LOG_SERVICE_URL = 'http://logs.test';
@@ -52,7 +40,7 @@ test('proxy administrativo e regressão das rotas do catálogo', async t => {
         throw new Error('Destino inesperado');
     };
     const app = express(); app.use(express.json()); app.use(cookieParser());
-    for (const nome of ['admin', 'auth', 'favoritos', 'comentarios', 'logs']) app.use(`/api/${nome}`, require(`../src/${nome}`));
+    for (const nome of ['admin', 'auth', 'logs']) app.use(`/api/${nome}`, require(`../src/${nome}`));
     const server = app.listen(0, '127.0.0.1');
     await new Promise(resolve => server.once('listening', resolve));
     const base = `http://127.0.0.1:${server.address().port}`;
@@ -135,21 +123,11 @@ test('proxy administrativo e regressão das rotas do catálogo', async t => {
             role = 'usuario'; falhaAuditoria = true; assert.equal((await get()).status, 403);
             assert.equal(chamadas.filter(c => c.url.includes('/auth/admin')).length, 0);
         });
-        await caso('regressão: login HttpOnly, logout, favoritos, comentários e consulta de logs', async () => {
+        await caso('login/logout e consulta administrativa dos eventos', async () => {
             const login = await request('POST', '/api/auth/login', false, { email: usuario.email, senha: 'teste' });
             assert.equal(login.status, 200); assert.match(login.cookie, /HttpOnly/);
             assert.equal((await request('POST', '/api/auth/logout')).status, 200);
             assert.equal(eventos.at(-1).acao, 'LOGOUT');
-            assert.deepEqual((await request('GET', '/api/favoritos')).body, { favoritos: [42] });
-            assert.equal((await request('POST', '/api/favoritos/42')).status, 201);
-            assert.equal(eventos.at(-1).acao, 'FILME_FAVORITADO');
-            assert.equal((await request('DELETE', '/api/favoritos/42')).status, 200);
-            assert.equal(eventos.at(-1).acao, 'FILME_DESFAVORITADO');
-            assert.equal((await request('GET', '/api/comentarios')).status, 200);
-            assert.equal((await request('POST', '/api/comentarios/42', true, { texto: 'Teste' })).status, 201);
-            assert.equal(eventos.at(-1).acao, 'COMENTARIO_CRIADO');
-            assert.equal((await request('DELETE', '/api/comentarios/7')).status, 200);
-            assert.equal(eventos.at(-1).acao, 'COMENTARIO_APAGADO');
             assert.deepEqual((await request('GET', '/api/logs?limit=4')).body, { eventos: [] });
             assert.ok(chamadas.some(c => c.url === 'http://logs.test/eventos?limit=4'));
         });
