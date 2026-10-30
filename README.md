@@ -19,7 +19,7 @@ O código da atividade está em revisão local na branch `atividade-10-girorural
 
 O checkout local original estava vazio. A branch foi montada sobre `feature/issue-1-modelo-dados-isolamento`, que traz a fundação não integrada da Issue #1. O histórico Git foi mantido.
 
-Limitações desta etapa: a integração real com MariaDB, MinIO e Redis depende de executar os serviços isolados localmente; não se considera um teste controlado como prova desses serviços. O relatório de execução desta branch deve registrar as verificações que forem realmente executadas. Relatórios e prints de etapas antigas estão em [documentação histórica](docs/historico/README.md).
+Validação local em 29/10/2026: `npm test` passou com **88 testes aprovados e 0 falhas**; `npm run docs:generate` gerou 33 operações GiroRural e 9 de autenticação; `npm run docs:validate` validou ambos os documentos OpenAPI. `node scripts/validar-rural-mariadb.js` foi tentado, mas o Docker Desktop negou acesso ao named pipe `docker_engine`; portanto, não houve execução real em MariaDB, Redis ou MinIO. Os testes automatizados usam duplos e não comprovam esses serviços reais. Relatórios e prints de etapas antigas estão em [documentação histórica](docs/historico/README.md).
 
 ## Arquitetura
 
