@@ -1,0 +1,63 @@
+# Acrescenta MariaDB local descartável ao Compose de desenvolvimento.
+# Execute com -p girorural-local-dev para manter os recursos isolados por projeto.
+services:
+  mariadb:
+    image: mariadb:11.4
+    env_file:
+      - .env.mariadb
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:?Defina DB_NAME em .env}
+      MARIADB_USER: ${DB_USER:?Defina DB_USER em .env}
+      MARIADB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD em .env}
+    volumes:
+      - mariadb-data:/var/lib/mysql
+      - ./database/dev-bootstrap-usuarios.sql:/docker-entrypoint-initdb.d/00-usuarios.sql:ro
+      - ./database/migracao-atividade3.sql:/docker-entrypoint-initdb.d/01-atividade3.sql:ro
+      - ./database/migracao-atividade6.sql:/docker-entrypoint-initdb.d/02-atividade6.sql:ro
+      - ./database/migracao-atividade7.sql:/docker-entrypoint-initdb.d/03-atividade7.sql:ro
+      - ./database/migracao-atividade7-periodo.sql:/docker-entrypoint-initdb.d/04-atividade7-periodo.sql:ro
+      - ./database/migracao-girorural-issue1.sql:/docker-entrypoint-initdb.d/05-girorural-issue1.sql:ro
+      - ./database/migracao-girorural-atividade10.sql:/docker-entrypoint-initdb.d/06-girorural-atividade10.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+    restart: unless-stopped
+    networks:
+      - girorural-network
+
+  mailpit:
+    image: axllent/mailpit:v1.29
+    expose:
+      - "1025"
+    networks:
+      - girorural-network
+
+  auth-service:
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_USER: ""
+      MAIL_PASS: ""
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  girorural-api:
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      log-service:
+        condition: service_healthy
+
+volumes:
+  mariadb-data:
