@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 140">
+  <symbol id="trator" viewBox="0 0 240 140">
+    <circle cx="74" cy="101" r="28" fill="#344b37"/><circle cx="74" cy="101" r="12" fill="#d6ddbd"/>
+    <circle cx="174" cy="105" r="17" fill="#344b37"/><circle cx="174" cy="105" r="7" fill="#d6ddbd"/>
+    <path d="M52 79h53l18-28h34l17 30 16 8v18h-8a28 28 0 0 0-55 0h-26a28 28 0 0 0-55-2z" fill="#77944f"/>
+    <path d="M128 56h26l13 26h-53z" fill="#dce5cc"/><path d="M43 80h40v8H43zM183 82h22v8h-22z" fill="#dfb654"/>
+  </symbol>
+  <symbol id="colheitadeira" viewBox="0 0 240 140">
+    <circle cx="91" cy="105" r="21" fill="#344b37"/><circle cx="91" cy="105" r="9" fill="#d6ddbd"/>
+    <circle cx="172" cy="106" r="16" fill="#344b37"/><circle cx="172" cy="106" r="7" fill="#d6ddbd"/>
+    <path d="M63 53h85l23 23v24h-13a21 21 0 0 0-42 0H71z" fill="#c19b48"/>
+    <path d="M112 58h31v26h-41z" fill="#dce5cc"/><path d="M40 91h53v7H40zM36 99l10 15m8-15 10 15m8-15 10 15m8-15 10 15" fill="none" stroke="#667c44" stroke-width="5"/>
+  </symbol>
+  <symbol id="plantadeira" viewBox="0 0 240 140">
+    <path d="M38 56h150v8H38zM53 64v45m29-45v45m29-45v45m29-45v45m29-45v45" stroke="#607b48" stroke-width="5" fill="none"/>
+    <path d="m50 52 7-22h28l8 22m20 0 7-22h28l8 22m19 0 7-22h18l7 22" fill="#c7a550"/>
+    <circle cx="57" cy="111" r="12" fill="#344b37"/><circle cx="113" cy="111" r="12" fill="#344b37"/><circle cx="174" cy="111" r="12" fill="#344b37"/>
+    <path d="M20 69h30v6H20zm166 0h30v6h-30z" fill="#83975c"/>
+  </symbol>
+  <symbol id="pulverizador" viewBox="0 0 240 140">
+    <path d="M84 70h68l21 21v12h-17a20 20 0 0 0-40 0H94z" fill="#77944f"/>
+    <circle cx="116" cy="105" r="16" fill="#344b37"/><circle cx="158" cy="105" r="13" fill="#344b37"/>
+    <path d="M110 69V43h36v27z" fill="#dce5cc"/><path d="M124 43V30h9v13M83 53H29m182 0h-52" stroke="#607b48" stroke-width="5" fill="none"/>
+    <path d="M29 53v15m15-15v15m15-15v15m128-15v15m15-15v15m15-15v15" stroke="#c19b48" stroke-width="3"/>
+  </symbol>
+  <symbol id="distribuidor" viewBox="0 0 240 140">
+    <path d="M35 72h82l15 17h-97z" fill="#77944f"/><circle cx="61" cy="103" r="14" fill="#344b37"/><circle cx="111" cy="103" r="14" fill="#344b37"/>
+    <path d="M132 63h52l-8 34h-42z" fill="#c19b48"/><path d="M137 63l10-24h24l12 24z" fill="#a9823b"/>
+    <path d="M158 99v13m-24-4 24 10 22-10" stroke="#607b48" stroke-width="5" fill="none"/>
+  </symbol>
+  <symbol id="grade" viewBox="0 0 240 140">
+    <path d="M30 71h168l-13 12H42z" fill="#607b48"/><path d="M48 83l11 20m12-20 11 20m12-20 11 20m12-20 11 20m12-20 11 20m12-20 11 20" stroke="#a9823b" stroke-width="7"/>
+    <circle cx="51" cy="109" r="9" fill="#344b37"/><circle cx="183" cy="109" r="9" fill="#344b37"/><path d="M20 68h23v6H20zm178 0h22v6h-22z" fill="#879960"/>
+  </symbol>
+  <symbol id="carreta" viewBox="0 0 240 140">
+    <path d="M48 62h131v36H48z" fill="#c19b48"/><path d="M58 51h112v11H58z" fill="#77944f"/>
+    <circle cx="82" cy="105" r="15" fill="#344b37"/><circle cx="157" cy="105" r="15" fill="#344b37"/>
+    <path d="M179 83h27l15 14h-43z" fill="#718b56"/><circle cx="203" cy="105" r="11" fill="#344b37"/>
+    <path d="M65 72h98M65 82h98" stroke="#e8d7a5" stroke-width="3"/>
+  </symbol>
+  <symbol id="implemento" viewBox="0 0 240 140">
+    <path d="M42 56h153v10H42z" fill="#607b48"/><path d="M61 66v42m30-42v42m30-42v42m30-42v42m30-42v42" stroke="#a9823b" stroke-width="7"/>
+    <path d="M34 49h22v7H34zm148 0h28v7h-28z" fill="#77944f"/>
+    <circle cx="63" cy="111" r="9" fill="#344b37"/><circle cx="184" cy="111" r="9" fill="#344b37"/>
+  </symbol>
+</svg>

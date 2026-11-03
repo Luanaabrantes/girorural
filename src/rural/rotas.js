@@ -45,7 +45,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     try { await handler(req, res); }
     catch (e) { if (e.status) return res.status(e.status).json({ mensagem: e.message }); console.error('Falha na operação GiroRural.'); return res.status(503).json({ mensagem: 'Serviço temporariamente indisponível.' }); }
   };
-  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave`;
+  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário demonstrativo (fictício)' ELSE u.nome END proprietario_nome`;
   const uploadFoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 }, fileFilter(req, file, cb) { cb(['image/jpeg','image/png','image/webp'].includes(file.mimetype) ? null : erro(400, 'Use uma imagem JPEG, PNG ou WebP.'), ['image/jpeg','image/png','image/webp'].includes(file.mimetype)); } }).single('foto');
 
   /** @openapi
@@ -92,7 +92,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    * /api/anuncios:
    *   get:
    *     tags: [Anúncios]
-   *     summary: Listar anúncios ativos publicamente
+   *     summary: Listar anúncios ativos publicamente, com filtros por cidade/categoria e dados públicos do proprietário
    *     security: []
    *     parameters:
    *       - { in: query, name: cidade, schema: { type: string } }
@@ -100,7 +100,16 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *       - { in: query, name: pagina, schema: { type: integer, minimum: 1, default: 1 } }
    *       - { in: query, name: limite, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
    *     responses:
-   *       '200': { description: Anúncios públicos paginados; sem informações de conta }
+   *       '200':
+   *         description: Anúncios públicos paginados. Demonstrações fictícias são identificadas e não podem receber reservas.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 pagina: { type: integer }
+   *                 limite: { type: integer }
+   *                 anuncios: { type: array, items: { $ref: '#/components/schemas/AnuncioPublico' } }
    */
   router.get('/anuncios', executar(async (req, res) => {
     const pagina = Number(req.query.pagina || 1), limite = Number(req.query.limite || 20);
@@ -108,7 +117,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     const filtros = ['a.estado = \'ativo\'', 'e.estado = \'ativo\''], params = [];
     if (req.query.cidade) { filtros.push('a.cidade = ?'); params.push(texto(req.query.cidade, 'Cidade', 120)); }
     if (req.query.categoria) { filtros.push('e.categoria = ?'); params.push(texto(req.query.categoria, 'Categoria', 80)); }
-    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE ${filtros.join(' AND ')} ORDER BY a.criado_em DESC,a.id DESC LIMIT ? OFFSET ?`, [...params, limite, (pagina - 1) * limite]);
+    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id WHERE ${filtros.join(' AND ')} ORDER BY a.criado_em DESC,a.id DESC LIMIT ? OFFSET ?`, [...params, limite, (pagina - 1) * limite]);
     res.json({ pagina, limite, anuncios: rows.map(publico) });
   }));
 
@@ -121,7 +130,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Anúncios da sessão}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}}
    */
   router.get('/anuncios/meus', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT ${fields},a.estado,a.equipamento_id FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? ORDER BY a.id DESC`, [req.usuario.id]);
+    const [rows] = await db.execute(`SELECT ${fields},a.estado,a.equipamento_id FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id WHERE a.proprietario_id=? ORDER BY a.id DESC`, [req.usuario.id]);
     res.json({ anuncios: rows.map(row => ({ ...publico(row), estado: row.estado, equipamento_id: row.equipamento_id })) });
   }));
 
@@ -132,10 +141,20 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     summary: Consultar anúncio ativo
    *     security: []
    *     parameters: [{ in: path, name: id, required: true, schema: { type: integer, minimum: 1 } }]
-   *     responses: {'200': {description: Detalhes públicos}, '404': {description: Anúncio indisponível}}
+   *     responses:
+   *       '200':
+   *         description: Detalhes públicos do equipamento, condições e nome público do proprietário, sem e-mail ou identificadores da conta.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               required: [anuncio]
+   *               properties:
+   *                 anuncio: { $ref: '#/components/schemas/AnuncioPublico' }
+   *       '404': {description: Anúncio indisponível}
    */
   router.get('/anuncios/:id', executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo'`, [id(req.params.id)]);
+    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo'`, [id(req.params.id)]);
     if (!rows.length) throw erro(404, 'Anúncio não encontrado.');
     res.json({ anuncio: publico(rows[0]) });
   }));
@@ -317,13 +336,14 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     summary: Solicitar período em anúncio ativo
    *     security: [{sessao: []}]
    *     requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReservaNova'}}}}
-   *     responses: {'201': {description: Reserva solicitada}, '400': {description: Período inválido}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}, '404': {description: Anúncio indisponível}}
+   *     responses: {'201': {description: Reserva solicitada}, '400': {description: Período inválido}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}, '404': {description: Anúncio indisponível}, '409': {description: Anúncios demonstrativos fictícios não aceitam reservas}}
    */
   router.post('/reservas', autenticar, exigir('LOCATARIO'), executar(async (req, res) => {
     const anuncioId = id(req.body?.anuncio_id), inicio = dataISO(req.body?.inicio, 'Data inicial'), fim = dataISO(req.body?.fim, 'Data final');
     if (fim < inicio) throw erro(400, 'A data final deve ser igual ou posterior à inicial.');
-    const [anuncios] = await db.execute("SELECT a.id FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo'", [anuncioId]);
+    const [anuncios] = await db.execute("SELECT a.id,e.descricao FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo'", [anuncioId]);
     if (!anuncios.length) throw erro(404, 'Anúncio não encontrado.');
+    if (anuncios[0].descricao?.startsWith('[DEMO FICTÍCIO]')) throw erro(409, 'Este anúncio demonstrativo não aceita reservas.');
     const [r] = await db.execute("INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim,estado) VALUES (?,?,?,?,'solicitada')", [anuncioId, req.usuario.id, inicio, fim]);
     await auditar(req, 'RESERVA_SOLICITADA', 'reserva', r.insertId); res.status(201).json({ id: r.insertId, estado: 'solicitada' });
   }));
@@ -418,7 +438,12 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
 
 function publico(row) {
   const { id: anuncioId, nome, categoria, marca, modelo, ano, descricao, diaria, cidade, uf, condicoes, imagem_chave } = row;
-  return { id: anuncioId, nome, categoria, marca, modelo, ano, descricao, diaria, cidade, uf, condicoes, foto_url: imagem_chave ? `/api/anuncios/${anuncioId}/foto` : null };
+  const demonstrativo = typeof descricao === 'string' && descricao.startsWith('[DEMO FICTÍCIO]');
+  return { id: anuncioId, nome: nome.replace(/^DEMO · /, ''), categoria, marca, modelo, ano,
+    descricao: typeof descricao === 'string' ? descricao.replace(/^\[DEMO FICTÍCIO\]\s*/, '') : descricao,
+    diaria, cidade, uf, condicoes, demonstrativo,
+    proprietario: { nome: row.proprietario_nome || 'Proprietário' },
+    foto_url: imagem_chave ? `/api/anuncios/${anuncioId}/foto` : null };
 }
 async function registrarEvento(dados) {
   const url = process.env.LOG_SERVICE_URL;

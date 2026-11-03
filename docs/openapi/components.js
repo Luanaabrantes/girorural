@@ -46,6 +46,17 @@ module.exports = {
     ReservaNova: { type: 'object', required: ['anuncio_id','inicio','fim'], additionalProperties: false, properties: {
       anuncio_id: { type: 'integer', minimum: 1 }, inicio: { type: 'string', format: 'date' }, fim: { type: 'string', format: 'date' }
     } },
+    ProprietarioPublico: { type: 'object', required: ['nome'], properties: {
+      nome: { type: 'string', description: 'Nome público de exibição; e-mail e identificadores de conta não são expostos.' }
+    } },
+    AnuncioPublico: { type: 'object', required: ['id','nome','categoria','diaria','cidade','uf','demonstrativo','proprietario','foto_url'], properties: {
+      id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, categoria: { type: 'string' },
+      marca: { type: 'string', nullable: true }, modelo: { type: 'string', nullable: true }, ano: { type: 'integer', nullable: true },
+      descricao: { type: 'string', nullable: true }, diaria: { type: 'string', pattern: '^\\d+\\.\\d{2}$' },
+      cidade: { type: 'string' }, uf: { type: 'string', minLength: 2, maxLength: 2 },
+      condicoes: { type: 'string', nullable: true }, demonstrativo: { type: 'boolean', description: 'Registros fictícios não aceitam solicitações de reserva.' },
+      proprietario: { $ref: '#/components/schemas/ProprietarioPublico' }, foto_url: { type: 'string', nullable: true, description: 'Imagem publicada após validação de acesso pela API.' }
+    } },
     DecisaoReserva: { type: 'object', required: ['estado'], additionalProperties: false, properties: { estado: { type: 'string', enum: ['confirmada','recusada'] } } },
     Evento: { type: 'object', required: ['id','usuario_id','acao','timestamp'], properties: {
       id: { type: 'string' }, usuario_id: { type: 'string' }, acao: { type: 'string' },

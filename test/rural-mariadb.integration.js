@@ -52,9 +52,17 @@ test('MariaDB real descartavel: esquema, isolamento e reversao', async t => {
             const seed = fs.readFileSync('database/seed-girorural.sql', 'utf8');
             await c.query('SET @giro_owner_id=1');
             await c.query(seed); await c.query(seed);
-            const [equipamentos] = await c.query("SELECT COUNT(*) AS n FROM equipamentos WHERE proprietario_id=1 AND nome='Trator demonstrativo'");
-            const [anuncios] = await c.query("SELECT COUNT(*) AS n FROM anuncios WHERE proprietario_id=1 AND equipamento_id IN (SELECT id FROM equipamentos WHERE nome='Trator demonstrativo')");
-            assert.equal(equipamentos[0].n, 1); assert.equal(anuncios[0].n, 1);
+            await c.query("UPDATE anuncios a JOIN equipamentos e ON e.id=a.equipamento_id SET a.diaria=1,a.cidade='Alterado',a.uf='AM' WHERE e.nome='DEMO · Trator agrícola John Deere 6110J' AND a.proprietario_id=1");
+            await c.query(seed);
+            const [equipamentos] = await c.query("SELECT COUNT(*) AS n FROM equipamentos WHERE proprietario_id=1 AND nome LIKE 'DEMO · %' AND descricao LIKE '[DEMO FICTÍCIO]%'");
+            const [anuncios] = await c.query("SELECT COUNT(*) AS n,COUNT(DISTINCT a.equipamento_id) AS equipamentos FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=1 AND e.descricao LIKE '[DEMO FICTÍCIO]%'");
+            const [[canonical]] = await c.query("SELECT a.diaria,a.cidade,a.uf FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE e.nome='DEMO · Trator agrícola John Deere 6110J' AND a.proprietario_id=1");
+            const [invalidOwner] = await c.query("SELECT COUNT(*) AS n FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id WHERE e.descricao LIKE '[DEMO FICTÍCIO]%' AND (a.proprietario_id<>1 OR u.role NOT IN ('PROPRIETARIO','proprietario'))");
+            assert.equal(equipamentos[0].n, 12); assert.equal(anuncios[0].n, 12); assert.equal(anuncios[0].equipamentos, 12); assert.equal(invalidOwner[0].n, 0);
+            assert.deepEqual(canonical, { diaria: '585.00', cidade: 'Ribeirão Preto', uf: 'SP' });
+            // A fixture é removida somente do MariaDB descartável do laboratório para os testes seguintes.
+            await c.query("DELETE FROM anuncios WHERE proprietario_id=1 AND equipamento_id IN (SELECT id FROM equipamentos WHERE proprietario_id=1 AND descricao LIKE '[DEMO FICTÍCIO]%')");
+            await c.query("DELETE FROM equipamentos WHERE proprietario_id=1 AND descricao LIKE '[DEMO FICTÍCIO]%'");
         });
         await c.query(`INSERT INTO equipamentos (id,proprietario_id,nome,categoria) VALUES (10,1,'Arado','Solo'),(20,2,'Grade','Solo');
             INSERT INTO anuncios (id,equipamento_id,proprietario_id,diaria,cidade,uf,estado) VALUES (100,10,1,50.00,'Piloto','SP','ativo'),(101,20,2,60.00,'Piloto','SP','rascunho');

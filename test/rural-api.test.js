@@ -15,10 +15,16 @@ function bancoControlado() {
   let nextEquipamento = 11, nextAnuncio = 101, nextReserva = 1;
   async function execute(sql, p = []) {
     if (sql.includes('FROM anuncios a JOIN equipamentos e') && sql.includes("a.estado = 'ativo'")) {
-      return [anuncios.filter(a => a.estado === 'ativo').map(a => ({ ...equipamentos.find(e => e.id === a.equipamento_id), ...a }))];
+      return [anuncios.filter(a => a.estado === 'ativo').map(a => {
+        const equipamento = equipamentos.find(e => e.id === a.equipamento_id);
+        return { ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário demonstrativo (fictício)' : 'Pessoa proprietária A' };
+      })];
     }
     if (sql.includes('SELECT a.id, e.nome') && sql.includes("a.estado='ativo'")) {
-      const a = anuncios.find(x => x.id === p[0] && x.estado === 'ativo'); return [a ? [{ ...equipamentos.find(e => e.id === a.equipamento_id), ...a }] : []];
+      const a = anuncios.find(x => x.id === p[0] && x.estado === 'ativo');
+      if (!a) return [[]];
+      const equipamento = equipamentos.find(e => e.id === a.equipamento_id);
+      return [[{ ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário demonstrativo (fictício)' : 'Pessoa proprietária A' }]];
     }
     if (sql.includes('SELECT id FROM usuarios')) return [users.has(Number(p[0])) ? [{ id: Number(p[0]) }] : []];
     if (sql.includes('SELECT id FROM equipamentos WHERE id=? AND proprietario_id=?')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]))];
@@ -36,7 +42,7 @@ function bancoControlado() {
     if (sql.startsWith('SELECT id FROM anuncios WHERE id=? AND proprietario_id=?')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1]))];
     if (sql.startsWith('UPDATE anuncios SET')) { const id = Number(p.at(-2)), owner = Number(p.at(-1)), a = anuncios.find(x => x.id === id && x.proprietario_id === owner); if (!a) return [{ affectedRows: 0 }]; const cols = sql.match(/SET (.*?) WHERE/)[1].split(','); cols.forEach((col, i) => { a[col.split('=')[0]] = p[i]; }); return [{ affectedRows: 1 }]; }
     if (sql.startsWith('SELECT id FROM anuncios WHERE id=? AND estado=')) return [anuncios.filter(a => a.id === Number(p[0]) && a.estado === 'ativo')];
-    if (sql.includes('SELECT a.id FROM anuncios a JOIN equipamentos e')) return [anuncios.filter(a => a.id === Number(p[0]) && a.estado === 'ativo' && equipamentos.find(e => e.id === a.equipamento_id)?.estado === 'ativo').map(a => ({ id: a.id }))];
+    if (sql.includes('SELECT a.id,e.descricao FROM anuncios a JOIN equipamentos e')) return [anuncios.filter(a => a.id === Number(p[0]) && a.estado === 'ativo' && equipamentos.find(e => e.id === a.equipamento_id)?.estado === 'ativo').map(a => ({ id: a.id, descricao: equipamentos.find(e => e.id === a.equipamento_id)?.descricao }))];
     if (sql.startsWith('INSERT INTO reservas')) { const r = { id: nextReserva++, anuncio_id: p[0], solicitante_id: p[1], inicio: p[2], fim: p[3], estado: 'solicitada' }; reservas.push(r); return [{ insertId: r.id, affectedRows: 1 }]; }
     if (sql.includes('SELECT r.id,r.anuncio_id,r.solicitante_id')) { const r = reservas.find(x => x.id === Number(p[0]) && (x.solicitante_id === Number(p[1]) || anuncios.find(a => a.id === x.anuncio_id)?.proprietario_id === Number(p[2]))); return [r ? [{ ...r, proprietario_id: anuncios.find(a => a.id === r.anuncio_id).proprietario_id }] : []]; }
     if (sql.includes('WHERE r.solicitante_id=?')) return [reservas.filter(r => r.solicitante_id === Number(p[0]))];
@@ -70,7 +76,7 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
   };
   await t.test('listagem pública não revela proprietário nem equipamento interno', async () => {
     const r = await request('/api/anuncios'); assert.equal(r.status, 200); assert.equal(r.body.anuncios.length, 1);
-    const a = r.body.anuncios[0]; assert.equal(a.nome, 'Trator'); assert.equal(a.proprietario_id, undefined); assert.equal(a.equipamento_id, undefined);
+    const a = r.body.anuncios[0]; assert.equal(a.nome, 'Trator'); assert.equal(a.proprietario.nome, 'Pessoa proprietária A'); assert.equal(a.proprietario_id, undefined); assert.equal(a.equipamento_id, undefined);
   });
   await t.test('cadastro autenticado exige PROPRIETARIO; anúncio recebe a identidade da sessão', async () => {
     assert.equal((await request('/api/equipamentos', 'locA', 'POST', { nome: 'Arado', categoria: 'Solo' })).status, 403);
@@ -88,7 +94,8 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
   await t.test('usuário B não edita anúncio A; A pode editar, e detalhes públicos não vazam dono', async () => {
     assert.equal((await request('/api/anuncios/100', 'donoB', 'PUT', { cidade: 'Outra' })).status, 404);
     assert.equal((await request('/api/anuncios/100', 'donoA', 'PUT', { cidade: 'Cravinhos' })).status, 200);
-    assert.equal((await request('/api/anuncios/100')).body.anuncio.proprietario_id, undefined);
+    const detalhe = (await request('/api/anuncios/100')).body.anuncio;
+    assert.equal(detalhe.proprietario_id, undefined); assert.equal(detalhe.proprietario.nome, 'Pessoa proprietária A');
   });
   await t.test('locatário cria e consulta somente a própria reserva, sem user_id enviado pelo cliente', async () => {
     assert.equal((await request('/api/reservas', 'donoA', 'POST', { anuncio_id: 100, inicio: '2026-11-01', fim: '2026-11-02' })).status, 403);
@@ -109,5 +116,12 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
     assert.equal(upload.status, 201); assert.equal(equipamentos[0].imagem_chave, 'anuncios/1/11111111-1111-4111-8111-111111111111.png');
     assert.equal((await request('/api/anuncios/100/foto', 'donoB')).status, 200);
     const photo = await fetch(base + '/api/anuncios/100/foto'); assert.equal(photo.status, 200); assert.match(photo.headers.get('content-type'), /image\/png/);
+  });
+  await t.test('anúncios demonstrativos são identificados e não aceitam reservas', async () => {
+    equipamentos.push({ id: 99, proprietario_id: 1, nome: 'DEMO · Grade aradora', categoria: 'Preparo do solo', estado: 'ativo', descricao: '[DEMO FICTÍCIO] Dados ilustrativos', imagem_chave: null });
+    anuncios.push({ id: 199, equipamento_id: 99, proprietario_id: 1, diaria: '250.00', cidade: 'Campinas', uf: 'SP', condicoes: 'Não aceita reservas', estado: 'ativo' });
+    const item = (await request('/api/anuncios/199')).body.anuncio;
+    assert.equal(item.demonstrativo, true); assert.equal(item.proprietario.nome, 'Proprietário demonstrativo (fictício)');
+    assert.equal((await request('/api/reservas', 'locA', 'POST', { anuncio_id: 199, inicio: '2026-11-10', fim: '2026-11-11' })).status, 409);
   });
 });

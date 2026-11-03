@@ -6,6 +6,9 @@ const root = path.resolve(__dirname, '..');
 function gerar(servico) {
   const publico = servico === 'girorural';
   const pasta = publico ? 'src' : 'auth-service/src';
+    const esquemas = publico ? components.schemas : Object.fromEntries(
+        Object.entries(components.schemas).filter(([nome]) => !['ProprietarioPublico','AnuncioPublico'].includes(nome))
+    );
   return swaggerJsdoc({
     failOnErrors: true,
     definition: {
@@ -19,7 +22,7 @@ function gerar(servico) {
       },
       ...(publico ? { servers: [{ url: '/', description: 'Mesma origem do GiroRural local ou publicado' }] }
         : { servers: [{ url: 'http://auth-service:3001', description: 'Somente rede interna Docker' }] }),
-      components: { schemas: components.schemas, securitySchemes: publico
+      components: { schemas: esquemas, securitySchemes: publico
         ? { sessao: components.securitySchemes.sessao }
         : { bearerAuth: components.securitySchemes.bearerAuth } }
     },
