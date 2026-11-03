@@ -20,7 +20,7 @@ async function executarLaboratorio({ spawn = spawnSync, esperar = ms => new Prom
         return docker(['run', '--rm', '--name', nome, ...args], timeout);
     }
     const checkout = ['--mount', `type=bind,source=${root},target=/app,readonly`, '-w', '/app'];
-    const fontesTeste = ['src/rural', 'database/migracao-girorural-issue1.sql', 'database/migracao-girorural-atividade10.sql', 'test/rural-mariadb.integration.js']
+    const fontesTeste = ['src/rural', 'database/migracao-girorural-issue1.sql', 'database/migracao-girorural-atividade10.sql', 'database/seed-girorural.sql', 'test/rural-mariadb.integration.js']
         .flatMap(arquivo => ['--mount', `type=bind,source=${path.join(root, arquivo)},target=/app/${arquivo},readonly`]);
     let falha;
     try {

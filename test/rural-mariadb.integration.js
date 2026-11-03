@@ -1,6 +1,7 @@
 // Executado somente pelo laboratorio isolado, fora do glob npm test.
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const mysql = require('mysql2/promise');
 const { aplicar, reverterVazio } = require('../src/rural/migracoes');
 const { criarAcessoRural } = require('../src/rural/acesso');
@@ -14,13 +15,13 @@ test('MariaDB real descartavel: esquema, isolamento e reversao', async t => {
     try {
         c = await pool.getConnection();
         await t.test('preflight recusa usuarios.id unsigned antes de criar tabelas', async () => {
-            await c.query('CREATE TABLE usuarios (id INT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB');
+            await c.query("CREATE TABLE usuarios (id INT UNSIGNED NOT NULL PRIMARY KEY, role VARCHAR(20) NOT NULL DEFAULT 'usuario') ENGINE=InnoDB");
             await assert.rejects(aplicar(c), /Dependência incompatível/);
             const [rows] = await c.query("SHOW TABLES LIKE 'equipamentos'"); assert.equal(rows.length, 0);
             await c.query('DROP TABLE usuarios'); // Apenas fixture vazia deste laboratorio.
         });
         // Contrato minimo de dependencia para teste, NAO DDL original reconstruido.
-        await c.query('CREATE TABLE usuarios (id INT NOT NULL PRIMARY KEY) ENGINE=InnoDB; INSERT INTO usuarios VALUES (1),(2),(3);');
+        await c.query("CREATE TABLE usuarios (id INT NOT NULL PRIMARY KEY, role VARCHAR(20) NOT NULL DEFAULT 'usuario') ENGINE=InnoDB; INSERT INTO usuarios (id,role) VALUES (1,'PROPRIETARIO'),(2,'LOCATARIO'),(3,'ADMIN');");
         await t.test('migração aplicavel e reexecutavel preserva usuarios', async () => {
             await aplicar(c); await aplicar(c);
             const [users] = await c.query('SELECT COUNT(*) AS n FROM usuarios'); assert.equal(users[0].n, 3);
@@ -44,8 +45,16 @@ test('MariaDB real descartavel: esquema, isolamento e reversao', async t => {
                 const [indices] = await c.execute(`SELECT COLUMN_NAME, NON_UNIQUE FROM information_schema.STATISTICS
                     WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? AND INDEX_NAME=? ORDER BY SEQ_IN_INDEX`, [tabela, indice]);
                 assert.equal(indices.map(i => i.COLUMN_NAME).join(','), colunas);
-                if (tabela === 'anuncios') assert.equal(indices[0].NON_UNIQUE, 0);
+                if (tabela === 'anuncios' && indice === 'uq_anuncio_equipamento') assert.ok(indices.every(i => i.NON_UNIQUE === 0));
             }
+        });
+        await t.test('seed local pode ser repetido sem duplicar equipamento/anúncio', async () => {
+            const seed = fs.readFileSync('database/seed-girorural.sql', 'utf8');
+            await c.query('SET @giro_owner_id=1');
+            await c.query(seed); await c.query(seed);
+            const [equipamentos] = await c.query("SELECT COUNT(*) AS n FROM equipamentos WHERE proprietario_id=1 AND nome='Trator demonstrativo'");
+            const [anuncios] = await c.query("SELECT COUNT(*) AS n FROM anuncios WHERE proprietario_id=1 AND equipamento_id IN (SELECT id FROM equipamentos WHERE nome='Trator demonstrativo')");
+            assert.equal(equipamentos[0].n, 1); assert.equal(anuncios[0].n, 1);
         });
         await c.query(`INSERT INTO equipamentos (id,proprietario_id,nome,categoria) VALUES (10,1,'Arado','Solo'),(20,2,'Grade','Solo');
             INSERT INTO anuncios (id,equipamento_id,proprietario_id,diaria,cidade,uf,estado) VALUES (100,10,1,50.00,'Piloto','SP','ativo'),(101,20,2,60.00,'Piloto','SP','rascunho');
