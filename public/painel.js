@@ -24,9 +24,9 @@ async function carregarAnuncios(){
   const equipamentoBox=$('#equipamentosMeus');equipamentoBox.replaceChildren();
   for(const item of equipamentos.equipamentos){const row=document.createElement('div');row.className='row';row.textContent=`${item.nome} · ${item.categoria}${item.marca?' · '+item.marca:''}${item.modelo?' '+item.modelo:''} · ${item.estado}`;equipamentoBox.append(row)}
   if(!equipamentos.equipamentos.length)equipamentoBox.textContent='Seus equipamentos cadastrados aparecerão aqui.';
-  const options=resultado.anuncios.filter(a=>equipamentos.equipamentos.some(e=>e.id===a.equipamento_id&&e.estado==='ativo'));
+  const options=equipamentos.equipamentos.filter(e=>e.estado==='ativo'&&!e.descricao?.startsWith('[DEMO FICTÍCIO]'));
   const select=adForm.elements.equipamento_id;select.replaceChildren();
-  for(const item of options){const option=document.createElement('option');option.value=item.equipamento_id;option.textContent=`${item.nome} · ${item.categoria}`;select.append(option)}
+  for(const item of options){const option=document.createElement('option');option.value=item.id;option.textContent=`${item.nome} · ${item.categoria}`;select.append(option)}
   const box=$('#meus');box.replaceChildren();
   for(const anuncio of resultado.anuncios)box.append(renderAnuncio(anuncio));
   if(!resultado.anuncios.length)box.textContent='Cadastre seu equipamento e publique o primeiro anúncio.';
