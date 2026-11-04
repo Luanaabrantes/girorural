@@ -46,7 +46,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     try { await handler(req, res); }
     catch (e) { if (e.status) return res.status(e.status).json({ mensagem: e.message }); console.error('Falha na operação GiroRural.'); return res.status(503).json({ mensagem: 'Serviço temporariamente indisponível.' }); }
   };
-  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, e.informacoes_adicionais, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, u.id proprietario_id, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário demonstrativo (fictício)' ELSE COALESCE(NULLIF(p.nome_exibicao,''),u.nome) END proprietario_nome`;
+  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, e.informacoes_adicionais, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, u.id proprietario_id, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário' ELSE COALESCE(NULLIF(p.nome_exibicao,''),u.nome) END proprietario_nome`;
   const formatosImagem = new Set(['image/jpeg','image/png','image/webp']);
   const filtroImagem = (req, file, cb) => cb(formatosImagem.has(file.mimetype) ? null : erro(400, 'Use imagens JPEG, PNG ou WebP.'), formatosImagem.has(file.mimetype));
   const uploadFoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 }, fileFilter: filtroImagem }).single('foto');
@@ -610,7 +610,22 @@ function publico(row) {
     descricao: typeof descricao === 'string' ? descricao.replace(/^\[DEMO FICTÍCIO\]\s*/, '') : descricao, informacoes_adicionais,
     diaria, cidade, uf, condicoes, demonstrativo, fotos: row.fotos || [],
     proprietario: { ...(demonstrativo ? {} : { id: row.proprietario_id }), nome: row.proprietario_nome || 'Proprietário' },
-    foto_url: imagem_chave ? `/api/anuncios/${anuncioId}/foto` : null };
+    foto_url: imagem_chave ? `/api/anuncios/${anuncioId}/foto` : demonstrativo ? imagemCatalogo(row) : null };
+}
+
+function imagemCatalogo(row) {
+  const categoria = String(row.categoria || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+  const nome = String(row.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+  if (categoria.includes('colheita')) return '/imagens/catalogo/colheitadeira-graos.jpg';
+  if (categoria.includes('pulver')) return '/imagens/catalogo/pulverizador-campo.jpg';
+  if (categoria.includes('adub') || categoria.includes('fertiliz')) return '/imagens/catalogo/distribuidor-fertilizantes.jpg';
+  if (categoria.includes('plantio') || categoria.includes('semeadura')) return '/imagens/catalogo/semeadora-plantadeira.jpg';
+  if (categoria.includes('rocada')) return '/imagens/catalogo/rocadeira-agricola.jpg';
+  if (categoria.includes('transporte') || categoria.includes('carreta')) return '/imagens/catalogo/carreta-agricola.jpg';
+  if (categoria.includes('preparo') || categoria.includes('subsol')) return '/imagens/catalogo/grade-aradora.jpg';
+  if (categoria.includes('trator') && nome.includes('6110')) return '/imagens/catalogo/trator-john-deere-6110.jpg';
+  if (categoria.includes('trator')) return '/imagens/catalogo/trator-agricola.jpg';
+  return '/imagens/catalogo/trator-agricola.jpg';
 }
 async function registrarEvento(dados) {
   const url = process.env.LOG_SERVICE_URL;

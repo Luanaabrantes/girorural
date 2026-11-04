@@ -18,7 +18,7 @@ function bancoControlado() {
     if (sql.includes('FROM anuncios a JOIN equipamentos e') && sql.includes("a.estado = 'ativo'")) {
       return [anuncios.filter(a => a.estado === 'ativo').map(a => {
         const equipamento = equipamentos.find(e => e.id === a.equipamento_id);
-        return { ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário demonstrativo (fictício)' : 'Pessoa proprietária A' };
+        return { ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário' : 'Pessoa proprietária A' };
       })];
     }
     if (sql.startsWith('SELECT anuncio_id,id,chave FROM anuncio_imagens WHERE anuncio_id IN')) return [anuncioImagens.filter(i => p.map(Number).includes(i.anuncio_id))];
@@ -37,7 +37,7 @@ function bancoControlado() {
       const a = anuncios.find(x => x.id === p[0] && x.estado === 'ativo');
       if (!a) return [[]];
       const equipamento = equipamentos.find(e => e.id === a.equipamento_id);
-      return [[{ ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário demonstrativo (fictício)' : 'Pessoa proprietária A' }]];
+      return [[{ ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário' : 'Pessoa proprietária A' }]];
     }
     if (sql.includes('SELECT id FROM usuarios')) return [users.has(Number(p[0])) ? [{ id: Number(p[0]) }] : []];
     if (sql.includes('SELECT id,descricao FROM equipamentos WHERE id=? AND proprietario_id=?')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]))];
@@ -153,10 +153,12 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
     assert.equal(equipamentos[0].imagem_chave, 'anuncios/1/11111111-1111-4111-8111-111111111111.png');
   });
   await t.test('anúncios demonstrativos são identificados e não aceitam reservas', async () => {
-    equipamentos.push({ id: 99, proprietario_id: 1, nome: 'DEMO · Grade aradora', categoria: 'Preparo do solo', estado: 'ativo', descricao: '[DEMO FICTÍCIO] Dados ilustrativos', imagem_chave: null });
+    equipamentos.push({ id: 99, proprietario_id: 1, nome: 'DEMO · Grade aradora', categoria: 'Preparo do solo', estado: 'ativo', descricao: '[DEMO FICTÍCIO] Implemento para operações de preparo do solo. Consulte disponibilidade e condições.', imagem_chave: null });
     anuncios.push({ id: 199, equipamento_id: 99, proprietario_id: 1, diaria: '250.00', cidade: 'Campinas', uf: 'SP', condicoes: 'Não aceita reservas', estado: 'ativo' });
     const item = (await request('/api/anuncios/199')).body.anuncio;
-    assert.equal(item.demonstrativo, true); assert.equal(item.proprietario.nome, 'Proprietário demonstrativo (fictício)');
+    assert.equal(item.demonstrativo, true); assert.equal(item.proprietario.nome, 'Proprietário');
+    assert.equal(item.foto_url, '/imagens/catalogo/grade-aradora.jpg');
+    assert.doesNotMatch([item.nome,item.descricao,item.condicoes,item.proprietario.nome].join(' '), /fict[ií]cio|demonstrativ|ilustrativ/i);
     assert.equal((await request('/api/anuncios/199', 'donoA', 'PUT', { cidade: 'Alterada' })).status, 409);
     assert.equal((await request('/api/anuncios/199', 'donoA', 'DELETE')).status, 409);
     assert.equal((await request('/api/equipamentos/99', 'donoA', 'PUT', { nome: 'Alterado' })).status, 409);
