@@ -34,7 +34,7 @@ function bancoControlado() {
     if (sql.startsWith('UPDATE equipamentos SET imagem_chave=')) { const e = equipamentos.find(x => x.id === Number(p[1]) && x.proprietario_id === Number(p[2])); if (e) e.imagem_chave = p[0]; return [{ affectedRows: e ? 1 : 0 }]; }
     if (sql.includes('SELECT e.imagem_chave,a.estado anuncio_estado')) return [anuncios.filter(a => a.id === Number(p[0])).map(a => ({ imagem_chave: equipamentos.find(e => e.id === a.equipamento_id)?.imagem_chave, anuncio_estado: a.estado, equipamento_estado: equipamentos.find(e => e.id === a.equipamento_id)?.estado, proprietario_id: a.proprietario_id }))];
     if (sql.includes('SELECT COUNT(*) total FROM anuncios')) return [[{ total: anuncios.filter(a => a.proprietario_id === Number(p[0]) && a.estado === 'ativo').length }]];
-    if (sql.startsWith('INSERT INTO equipamentos')) { const e = { id: nextEquipamento++, proprietario_id: p[6], nome: p[0], categoria: p[1], marca: p[2], modelo: p[3], ano: p[4], descricao: p[5], estado: 'ativo' }; equipamentos.push(e); return [{ insertId: e.id, affectedRows: 1 }]; }
+    if (sql.startsWith('INSERT INTO equipamentos')) { const e = { id: nextEquipamento++, proprietario_id: p[6], nome: p[0], categoria: p[1], marca: p[2], modelo: p[3], ano: p[4], descricao: p[5], informacoes_adicionais: p[7], estado: 'ativo' }; equipamentos.push(e); return [{ insertId: e.id, affectedRows: 1 }]; }
     if (sql.startsWith('SELECT id FROM equipamentos WHERE id=? AND proprietario_id=? AND estado=')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]) && e.estado === 'ativo')];
     if (sql.startsWith('INSERT INTO anuncios')) { const a = { id: nextAnuncio++, equipamento_id: p[0], proprietario_id: p[1], diaria: p[2], cidade: p[3], uf: p[4], condicoes: p[5], estado: p[6] }; anuncios.push(a); return [{ insertId: a.id, affectedRows: 1 }]; }
     if (sql.startsWith('SELECT id,estado FROM anuncios WHERE id=? AND proprietario_id=?')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1]))];
@@ -80,7 +80,8 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
   });
   await t.test('cadastro autenticado exige PROPRIETARIO; anúncio recebe a identidade da sessão', async () => {
     assert.equal((await request('/api/equipamentos', 'locA', 'POST', { nome: 'Arado', categoria: 'Solo' })).status, 403);
-    const e = await request('/api/equipamentos', 'donoA', 'POST', { nome: 'Arado', categoria: 'Solo', proprietario_id: 2 }); assert.equal(e.status, 201);
+    const e = await request('/api/equipamentos', 'donoA', 'POST', { nome: 'Arado', categoria: 'Solo', informacoes_adicionais: 'Informações confirmadas pelo proprietário.', proprietario_id: 2 }); assert.equal(e.status, 201);
+    assert.equal(equipamentos.find(x => x.id === e.body.id).informacoes_adicionais, 'Informações confirmadas pelo proprietário.');
     const a = await request('/api/anuncios', 'donoA', 'POST', { equipamento_id: e.body.id, diaria: 55.25, cidade: 'Sertãozinho', uf: 'SP', proprietario_id: 2 });
     assert.equal(a.status, 201); assert.equal(anuncios.find(x => x.id === a.body.id).proprietario_id, 1);
     assert.equal(eventos.filter(x => x.acao === 'EQUIPAMENTO_CADASTRADO').length, 1); assert.equal(eventos.filter(x => x.acao === 'ANUNCIO_CRIADO').length, 1);

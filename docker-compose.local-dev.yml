@@ -19,6 +19,7 @@ services:
       - ./database/migracao-girorural-issue1.sql:/docker-entrypoint-initdb.d/05-girorural-issue1.sql:ro
       - ./database/migracao-girorural-atividade10.sql:/docker-entrypoint-initdb.d/06-girorural-atividade10.sql:ro
       - ./database/migracao-perfil-usuarios.sql:/docker-entrypoint-initdb.d/07-perfil-usuarios.sql:ro
+      - ./database/migracao-anuncios-informacoes.sql:/docker-entrypoint-initdb.d/08-anuncios-informacoes.sql:ro
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s

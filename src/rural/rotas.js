@@ -45,7 +45,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     try { await handler(req, res); }
     catch (e) { if (e.status) return res.status(e.status).json({ mensagem: e.message }); console.error('Falha na operação GiroRural.'); return res.status(503).json({ mensagem: 'Serviço temporariamente indisponível.' }); }
   };
-  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, u.id proprietario_id, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário demonstrativo (fictício)' ELSE COALESCE(NULLIF(p.nome_exibicao,''),u.nome) END proprietario_nome`;
+  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, e.informacoes_adicionais, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, u.id proprietario_id, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário demonstrativo (fictício)' ELSE COALESCE(NULLIF(p.nome_exibicao,''),u.nome) END proprietario_nome`;
   const uploadFoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 }, fileFilter(req, file, cb) { cb(['image/jpeg','image/png','image/webp'].includes(file.mimetype) ? null : erro(400, 'Use uma imagem JPEG, PNG ou WebP.'), ['image/jpeg','image/png','image/webp'].includes(file.mimetype)); } }).single('foto');
 
   /** @openapi
@@ -170,9 +170,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    */
   router.post('/equipamentos', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
     const b = req.body || {};
-    const dados = [texto(b.nome, 'Nome', 150), texto(b.categoria, 'Categoria', 80), texto(b.marca, 'Marca', 100, false), texto(b.modelo, 'Modelo', 120, false), b.ano == null || b.ano === '' ? null : Number(b.ano), texto(b.descricao, 'Descrição', 5000, false), req.usuario.id];
+    const dados = [texto(b.nome, 'Nome', 150), texto(b.categoria, 'Categoria', 80), texto(b.marca, 'Marca', 100, false), texto(b.modelo, 'Modelo', 120, false), b.ano == null || b.ano === '' ? null : Number(b.ano), texto(b.descricao, 'Descrição', 5000, false), req.usuario.id, texto(b.informacoes_adicionais, 'Informações adicionais', 3000, false)];
     if (dados[4] !== null && (!Number.isInteger(dados[4]) || dados[4] < 1800 || dados[4] > new Date().getFullYear() + 1)) throw erro(400, 'Ano inválido.');
-    const [r] = await db.execute('INSERT INTO equipamentos (nome,categoria,marca,modelo,ano,descricao,proprietario_id) VALUES (?,?,?,?,?,?,?)', dados);
+    const [r] = await db.execute('INSERT INTO equipamentos (nome,categoria,marca,modelo,ano,descricao,proprietario_id,informacoes_adicionais) VALUES (?,?,?,?,?,?,?,?)', dados);
     await auditar(req, 'EQUIPAMENTO_CADASTRADO', 'equipamento', r.insertId);
     res.status(201).json({ id: r.insertId });
   }));
@@ -194,9 +194,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'204': {description: Equipamento desativado}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}, '404': {description: Equipamento de outra conta}}
    */
   router.put('/equipamentos/:id', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
-    const equipamentoId = id(req.params.id), b = req.body || {}, permitidos = new Set(['nome','categoria','marca','modelo','ano','descricao','estado']);
+    const equipamentoId = id(req.params.id), b = req.body || {}, permitidos = new Set(['nome','categoria','marca','modelo','ano','descricao','informacoes_adicionais','estado']);
     if (!Object.keys(b).length || Object.keys(b).some(k => !permitidos.has(k))) throw erro(400, 'Campos de equipamento inválidos.');
-    const campos = { nome: ['nome', () => texto(b.nome, 'Nome', 150)], categoria: ['categoria', () => texto(b.categoria, 'Categoria', 80)], marca: ['marca', () => texto(b.marca, 'Marca', 100, false)], modelo: ['modelo', () => texto(b.modelo, 'Modelo', 120, false)], descricao: ['descricao', () => texto(b.descricao, 'Descrição', 5000, false)] };
+    const campos = { nome: ['nome', () => texto(b.nome, 'Nome', 150)], categoria: ['categoria', () => texto(b.categoria, 'Categoria', 80)], marca: ['marca', () => texto(b.marca, 'Marca', 100, false)], modelo: ['modelo', () => texto(b.modelo, 'Modelo', 120, false)], descricao: ['descricao', () => texto(b.descricao, 'Descrição', 5000, false)], informacoes_adicionais: ['informacoes_adicionais', () => texto(b.informacoes_adicionais, 'Informações adicionais', 3000, false)] };
     const sets = [], vals = [];
     for (const [k, [coluna, validar]] of Object.entries(campos)) if (b[k] !== undefined) { sets.push(`${coluna}=?`); vals.push(validar()); }
     if (b.ano !== undefined) { const ano = b.ano === null || b.ano === '' ? null : Number(b.ano); if (ano !== null && (!Number.isInteger(ano) || ano < 1800 || ano > new Date().getFullYear() + 1)) throw erro(400, 'Ano inválido.'); sets.push('ano=?'); vals.push(ano); }
@@ -235,7 +235,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Equipamentos da sessão}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}}
    */
   router.get('/equipamentos/meus', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
-    const [rows] = await db.execute('SELECT id,nome,categoria,marca,modelo,ano,descricao,imagem_chave,estado,criado_em,atualizado_em FROM equipamentos WHERE proprietario_id=? ORDER BY id DESC', [req.usuario.id]);
+    const [rows] = await db.execute('SELECT id,nome,categoria,marca,modelo,ano,descricao,informacoes_adicionais,imagem_chave,estado,criado_em,atualizado_em FROM equipamentos WHERE proprietario_id=? ORDER BY id DESC', [req.usuario.id]);
     res.json({ equipamentos: rows });
   }));
 
@@ -437,10 +437,10 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
 }
 
 function publico(row) {
-  const { id: anuncioId, nome, categoria, marca, modelo, ano, descricao, diaria, cidade, uf, condicoes, imagem_chave } = row;
+  const { id: anuncioId, nome, categoria, marca, modelo, ano, descricao, informacoes_adicionais, diaria, cidade, uf, condicoes, imagem_chave } = row;
   const demonstrativo = typeof descricao === 'string' && descricao.startsWith('[DEMO FICTÍCIO]');
   return { id: anuncioId, nome: nome.replace(/^DEMO · /, ''), categoria, marca, modelo, ano,
-    descricao: typeof descricao === 'string' ? descricao.replace(/^\[DEMO FICTÍCIO\]\s*/, '') : descricao,
+    descricao: typeof descricao === 'string' ? descricao.replace(/^\[DEMO FICTÍCIO\]\s*/, '') : descricao, informacoes_adicionais,
     diaria, cidade, uf, condicoes, demonstrativo,
     proprietario: { ...(demonstrativo ? {} : { id: row.proprietario_id }), nome: row.proprietario_nome || 'Proprietário' },
     foto_url: imagem_chave ? `/api/anuncios/${anuncioId}/foto` : null };

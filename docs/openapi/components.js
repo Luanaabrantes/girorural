@@ -26,12 +26,12 @@ module.exports = {
     EquipamentoNovo: { type: 'object', required: ['nome','categoria'], additionalProperties: false, properties: {
       nome: { type: 'string', minLength: 1, maxLength: 150 }, categoria: { type: 'string', minLength: 1, maxLength: 80 },
       marca: { type: 'string', maxLength: 100, nullable: true }, modelo: { type: 'string', maxLength: 120, nullable: true },
-      ano: { type: 'integer', minimum: 1800, nullable: true }, descricao: { type: 'string', maxLength: 5000, nullable: true }
+      ano: { type: 'integer', minimum: 1800, nullable: true }, descricao: { type: 'string', maxLength: 5000, nullable: true }, informacoes_adicionais: { type: 'string', maxLength: 3000, nullable: true, description: 'Dados opcionais confirmados pelo proprietário e pertinentes à categoria.' }
     } },
     EquipamentoAlteracao: { type: 'object', minProperties: 1, additionalProperties: false, properties: {
       nome: { type: 'string', minLength: 1, maxLength: 150 }, categoria: { type: 'string', minLength: 1, maxLength: 80 },
       marca: { type: 'string', maxLength: 100, nullable: true }, modelo: { type: 'string', maxLength: 120, nullable: true },
-      ano: { type: 'integer', minimum: 1800, nullable: true }, descricao: { type: 'string', maxLength: 5000, nullable: true }, estado: { type: 'string', enum: ['ativo','inativo'] }
+      ano: { type: 'integer', minimum: 1800, nullable: true }, descricao: { type: 'string', maxLength: 5000, nullable: true }, informacoes_adicionais: { type: 'string', maxLength: 3000, nullable: true }, estado: { type: 'string', enum: ['ativo','inativo'] }
     } },
     AnuncioNovo: { type: 'object', required: ['equipamento_id','diaria','cidade','uf'], additionalProperties: false, properties: {
       equipamento_id: { type: 'integer', minimum: 1 }, diaria: { type: 'number', minimum: 0.01, multipleOf: 0.01 },
@@ -63,7 +63,7 @@ module.exports = {
     } },
     AnuncioProprietarioPublico: { type: 'object', required: ['id','nome','categoria','diaria','cidade','uf','demonstrativo'], properties: {
       id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, categoria: { type: 'string' }, marca: { type: 'string', nullable: true },
-      modelo: { type: 'string', nullable: true }, ano: { type: 'integer', nullable: true }, descricao: { type: 'string', nullable: true },
+      modelo: { type: 'string', nullable: true }, ano: { type: 'integer', nullable: true }, descricao: { type: 'string', nullable: true }, informacoes_adicionais: { type: 'string', nullable: true, description: 'Informações fornecidas pelo proprietário pertinentes à categoria.' },
       diaria: { type: 'string' }, cidade: { type: 'string' }, uf: { type: 'string' }, condicoes: { type: 'string', nullable: true },
       foto_url: { type: 'string', nullable: true }, demonstrativo: { type: 'boolean', enum: [false] }
     } },
@@ -74,7 +74,7 @@ module.exports = {
     AnuncioPublico: { type: 'object', required: ['id','nome','categoria','diaria','cidade','uf','demonstrativo','proprietario','foto_url'], properties: {
       id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, categoria: { type: 'string' },
       marca: { type: 'string', nullable: true }, modelo: { type: 'string', nullable: true }, ano: { type: 'integer', nullable: true },
-      descricao: { type: 'string', nullable: true }, diaria: { type: 'string', pattern: '^\\d+\\.\\d{2}$' },
+      descricao: { type: 'string', nullable: true }, informacoes_adicionais: { type: 'string', nullable: true }, diaria: { type: 'string', pattern: '^\\d+\\.\\d{2}$' },
       cidade: { type: 'string' }, uf: { type: 'string', minLength: 2, maxLength: 2 },
       condicoes: { type: 'string', nullable: true }, demonstrativo: { type: 'boolean', description: 'Registros fictícios não aceitam solicitações de reserva.' },
       proprietario: { $ref: '#/components/schemas/ProprietarioPublico' }, foto_url: { type: 'string', nullable: true, description: 'Imagem publicada após validação de acesso pela API.' }

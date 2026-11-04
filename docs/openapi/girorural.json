@@ -182,6 +182,12 @@
             "type": "string",
             "maxLength": 5000,
             "nullable": true
+          },
+          "informacoes_adicionais": {
+            "type": "string",
+            "maxLength": 3000,
+            "nullable": true,
+            "description": "Dados opcionais confirmados pelo proprietário e pertinentes à categoria."
           }
         }
       },
@@ -218,6 +224,11 @@
           "descricao": {
             "type": "string",
             "maxLength": 5000,
+            "nullable": true
+          },
+          "informacoes_adicionais": {
+            "type": "string",
+            "maxLength": 3000,
             "nullable": true
           },
           "estado": {
@@ -476,6 +487,11 @@
             "type": "string",
             "nullable": true
           },
+          "informacoes_adicionais": {
+            "type": "string",
+            "nullable": true,
+            "description": "Informações fornecidas pelo proprietário pertinentes à categoria."
+          },
           "diaria": {
             "type": "string"
           },
@@ -571,6 +587,10 @@
             "nullable": true
           },
           "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "informacoes_adicionais": {
             "type": "string",
             "nullable": true
           },
