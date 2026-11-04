@@ -45,7 +45,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     try { await handler(req, res); }
     catch (e) { if (e.status) return res.status(e.status).json({ mensagem: e.message }); console.error('Falha na operação GiroRural.'); return res.status(503).json({ mensagem: 'Serviço temporariamente indisponível.' }); }
   };
-  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário demonstrativo (fictício)' ELSE u.nome END proprietario_nome`;
+  const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, u.id proprietario_id, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário demonstrativo (fictício)' ELSE COALESCE(NULLIF(p.nome_exibicao,''),u.nome) END proprietario_nome`;
   const uploadFoto = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1, fields: 0 }, fileFilter(req, file, cb) { cb(['image/jpeg','image/png','image/webp'].includes(file.mimetype) ? null : erro(400, 'Use uma imagem JPEG, PNG ou WebP.'), ['image/jpeg','image/png','image/webp'].includes(file.mimetype)); } }).single('foto');
 
   /** @openapi
@@ -117,7 +117,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     const filtros = ['a.estado = \'ativo\'', 'e.estado = \'ativo\''], params = [];
     if (req.query.cidade) { filtros.push('a.cidade = ?'); params.push(texto(req.query.cidade, 'Cidade', 120)); }
     if (req.query.categoria) { filtros.push('e.categoria = ?'); params.push(texto(req.query.categoria, 'Categoria', 80)); }
-    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id WHERE ${filtros.join(' AND ')} ORDER BY a.criado_em DESC,a.id DESC LIMIT ? OFFSET ?`, [...params, limite, (pagina - 1) * limite]);
+    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id LEFT JOIN perfis p ON p.usuario_id=u.id WHERE ${filtros.join(' AND ')} ORDER BY a.criado_em DESC,a.id DESC LIMIT ? OFFSET ?`, [...params, limite, (pagina - 1) * limite]);
     res.json({ pagina, limite, anuncios: rows.map(publico) });
   }));
 
@@ -130,7 +130,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Anúncios da sessão}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}}
    */
   router.get('/anuncios/meus', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT ${fields},a.estado,a.equipamento_id FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id WHERE a.proprietario_id=? ORDER BY a.id DESC`, [req.usuario.id]);
+    const [rows] = await db.execute(`SELECT ${fields},a.estado,a.equipamento_id FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id LEFT JOIN perfis p ON p.usuario_id=u.id WHERE a.proprietario_id=? ORDER BY a.id DESC`, [req.usuario.id]);
     res.json({ anuncios: rows.map(row => ({ ...publico(row), estado: row.estado, equipamento_id: row.equipamento_id })) });
   }));
 
@@ -154,7 +154,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *       '404': {description: Anúncio indisponível}
    */
   router.get('/anuncios/:id', executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo'`, [id(req.params.id)]);
+    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id LEFT JOIN perfis p ON p.usuario_id=u.id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo'`, [id(req.params.id)]);
     if (!rows.length) throw erro(404, 'Anúncio não encontrado.');
     res.json({ anuncio: publico(rows[0]) });
   }));
@@ -442,7 +442,7 @@ function publico(row) {
   return { id: anuncioId, nome: nome.replace(/^DEMO · /, ''), categoria, marca, modelo, ano,
     descricao: typeof descricao === 'string' ? descricao.replace(/^\[DEMO FICTÍCIO\]\s*/, '') : descricao,
     diaria, cidade, uf, condicoes, demonstrativo,
-    proprietario: { nome: row.proprietario_nome || 'Proprietário' },
+    proprietario: { ...(demonstrativo ? {} : { id: row.proprietario_id }), nome: row.proprietario_nome || 'Proprietário' },
     foto_url: imagem_chave ? `/api/anuncios/${anuncioId}/foto` : null };
 }
 async function registrarEvento(dados) {

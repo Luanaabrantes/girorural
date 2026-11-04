@@ -8,7 +8,7 @@ const { gerar } = require('../src/openapi');
 
 const rotas = {
   girorural: {
-    'src/server.js': '', 'src/auth.js': '/api/auth', 'src/logs.js': '/api/logs',
+    'src/server.js': '', 'src/auth.js': '/api/auth', 'src/perfil.js': '/api', 'src/logs.js': '/api/logs',
     'src/admin.js': '/api/admin', 'src/premium.js': '/api/premium', 'src/rural/rotas.js': '/api'
   },
   auth: {
@@ -52,6 +52,8 @@ test('Swagger público documenta os fluxos GiroRural', async t => {
   const auth = await (await fetch(`${origin}/openapi/auth.json`)).json();
   assert.equal(rural.components.securitySchemes.sessao.name, 'token');
   assert.ok(rural.paths['/api/anuncios'].get); assert.ok(rural.paths['/api/anuncios'].post);
+  assert.ok(rural.paths['/api/perfil/me'].get); assert.ok(rural.paths['/api/perfil/me'].patch);
+  assert.ok(rural.paths['/api/proprietarios/{id}'].get);
   assert.ok(rural.paths['/api/reservas/{id}'].patch); assert.ok(rural.paths['/api/anuncios/{id}/foto'].post);
   assert.equal(auth.paths['/auth/validar'].get['x-public-proxy'], 'GET /api/auth/me');
   for (const route of ['/apidocs/', '/apidocs/auth/']) assert.equal((await fetch(origin + route)).status, 200);

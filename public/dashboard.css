@@ -1,0 +1,1 @@
+.dashboard-nav{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}.dashboard-nav a{padding:9px 13px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--green);font-size:13px;text-decoration:none}.dashboard-nav a:hover{background:#eef0e5}

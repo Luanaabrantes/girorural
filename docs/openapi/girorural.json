@@ -334,9 +334,203 @@
           "nome"
         ],
         "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Identificador usado para abrir o perfil público; nenhum dado privado é exposto."
+          },
           "nome": {
             "type": "string",
-            "description": "Nome público de exibição; e-mail e identificadores de conta não são expostos."
+            "description": "Nome público de exibição; e-mail e telefone não são expostos."
+          }
+        }
+      },
+      "PerfilAtualizacao": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "Nome completo. O e-mail não pode ser alterado por este endpoint."
+          },
+          "nome_exibicao": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "telefone": {
+            "type": "string",
+            "maxLength": 30
+          },
+          "cidade": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "uf": {
+            "type": "string",
+            "maxLength": 2,
+            "pattern": "^[A-Za-z]{2}$"
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      },
+      "PerfilPrivado": {
+        "type": "object",
+        "required": [
+          "id",
+          "nome",
+          "nome_exibicao",
+          "email",
+          "role",
+          "telefone",
+          "cidade",
+          "uf",
+          "bio",
+          "foto_url"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nome": {
+            "type": "string"
+          },
+          "nome_exibicao": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "readOnly": true
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "PROPRIETARIO",
+              "LOCATARIO",
+              "admin",
+              "usuario"
+            ],
+            "readOnly": true
+          },
+          "telefone": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "uf": {
+            "type": "string"
+          },
+          "bio": {
+            "type": "string"
+          },
+          "foto_url": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AnuncioProprietarioPublico": {
+        "type": "object",
+        "required": [
+          "id",
+          "nome",
+          "categoria",
+          "diaria",
+          "cidade",
+          "uf",
+          "demonstrativo"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nome": {
+            "type": "string"
+          },
+          "categoria": {
+            "type": "string"
+          },
+          "marca": {
+            "type": "string",
+            "nullable": true
+          },
+          "modelo": {
+            "type": "string",
+            "nullable": true
+          },
+          "ano": {
+            "type": "integer",
+            "nullable": true
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          },
+          "diaria": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "uf": {
+            "type": "string"
+          },
+          "condicoes": {
+            "type": "string",
+            "nullable": true
+          },
+          "foto_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "demonstrativo": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          }
+        }
+      },
+      "PerfilProprietarioPublico": {
+        "type": "object",
+        "required": [
+          "id",
+          "nome",
+          "foto_url",
+          "cidade",
+          "uf",
+          "descricao"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "nome": {
+            "type": "string"
+          },
+          "foto_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "uf": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string"
           }
         }
       },
@@ -766,6 +960,263 @@
           },
           "503": {
             "description": "Webhook não configurado ou processamento não concluído; reenviar"
+          }
+        }
+      }
+    },
+    "/api/perfil/fotos/{usuarioId}/{arquivo}": {
+      "get": {
+        "tags": [
+          "Perfil"
+        ],
+        "summary": "Exibir foto pública de perfil",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "usuarioId",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "path",
+            "name": "arquivo",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f-]{36}\\\\.(jpg|png|webp)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Imagem pública"
+          },
+          "404": {
+            "description": "Foto inexistente"
+          },
+          "503": {
+            "description": "MinIO indisponível"
+          }
+        }
+      }
+    },
+    "/api/perfil/me": {
+      "get": {
+        "tags": [
+          "Perfil"
+        ],
+        "summary": "Consultar o próprio perfil",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dados próprios incluindo e-mail e telefone privados.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "perfil"
+                  ],
+                  "properties": {
+                    "perfil": {
+                      "$ref": "#/components/schemas/PerfilPrivado"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "503": {
+            "description": "Banco indisponível"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Perfil"
+        ],
+        "summary": "Atualizar dados do próprio perfil",
+        "description": "E-mail e papel não podem ser alterados por esta rota; a identidade vem da sessão.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PerfilAtualizacao"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Perfil atualizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "mensagem",
+                    "perfil"
+                  ],
+                  "properties": {
+                    "mensagem": {
+                      "type": "string"
+                    },
+                    "perfil": {
+                      "$ref": "#/components/schemas/PerfilPrivado"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos ou tentativa de alteração de papel/email"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "503": {
+            "description": "Banco indisponível"
+          }
+        }
+      }
+    },
+    "/api/proprietarios/{id}": {
+      "get": {
+        "tags": [
+          "Perfil"
+        ],
+        "summary": "Consultar perfil público de proprietário",
+        "description": "Retorna somente identidade pública, localização, descrição e anúncios ativos reais; nunca inclui e-mail ou telefone.",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Perfil público e anúncios ativos sem e-mail ou telefone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "proprietario",
+                    "anuncios"
+                  ],
+                  "properties": {
+                    "proprietario": {
+                      "$ref": "#/components/schemas/PerfilProprietarioPublico"
+                    },
+                    "anuncios": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AnuncioProprietarioPublico"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Proprietário sem perfil público ou sem anúncios ativos"
+          }
+        }
+      }
+    },
+    "/api/perfil/me/foto": {
+      "post": {
+        "tags": [
+          "Perfil"
+        ],
+        "summary": "Enviar ou substituir foto própria",
+        "description": "Aceita JPEG PNG ou WebP estático de até 5 MB; somente o usuário da sessão pode alterar a própria foto.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "foto"
+                ],
+                "properties": {
+                  "foto": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Foto validada e armazenada no MinIO"
+          },
+          "400": {
+            "description": "Formato inválido"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "413": {
+            "description": "Foto acima de 5 MB"
+          },
+          "503": {
+            "description": "MinIO indisponível"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Perfil"
+        ],
+        "summary": "Remover foto própria",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Foto removida do perfil"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "503": {
+            "description": "Remoção indisponível"
           }
         }
       }

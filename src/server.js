@@ -131,6 +131,9 @@ app.use(
     authRoutes
 );
 
+// Perfil privado e apresentação pública de proprietários.
+app.use('/api', require('./perfil').criarRotasPerfil());
+
 // API de equipamentos, anúncios e reservas
 app.use('/api', require('./rural/rotas').criarRotasRural());
 

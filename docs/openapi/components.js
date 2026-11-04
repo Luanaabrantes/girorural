@@ -47,7 +47,29 @@ module.exports = {
       anuncio_id: { type: 'integer', minimum: 1 }, inicio: { type: 'string', format: 'date' }, fim: { type: 'string', format: 'date' }
     } },
     ProprietarioPublico: { type: 'object', required: ['nome'], properties: {
-      nome: { type: 'string', description: 'Nome público de exibição; e-mail e identificadores de conta não são expostos.' }
+      id: { type: 'integer', minimum: 1, description: 'Identificador usado para abrir o perfil público; nenhum dado privado é exposto.' },
+      nome: { type: 'string', description: 'Nome público de exibição; e-mail e telefone não são expostos.' }
+    } },
+    PerfilAtualizacao: { type: 'object', minProperties: 1, additionalProperties: false, properties: {
+      nome: { type: 'string', minLength: 1, maxLength: 150, description: 'Nome completo. O e-mail não pode ser alterado por este endpoint.' },
+      nome_exibicao: { type: 'string', maxLength: 100 }, telefone: { type: 'string', maxLength: 30 },
+      cidade: { type: 'string', maxLength: 120 }, uf: { type: 'string', maxLength: 2, pattern: '^[A-Za-z]{2}$' },
+      bio: { type: 'string', maxLength: 300 }
+    } },
+    PerfilPrivado: { type: 'object', required: ['id','nome','nome_exibicao','email','role','telefone','cidade','uf','bio','foto_url'], properties: {
+      id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, nome_exibicao: { type: 'string' },
+      email: { type: 'string', format: 'email', readOnly: true }, role: { type: 'string', enum: ['ADMIN','PROPRIETARIO','LOCATARIO','admin','usuario'], readOnly: true },
+      telefone: { type: 'string' }, cidade: { type: 'string' }, uf: { type: 'string' }, bio: { type: 'string' }, foto_url: { type: 'string', nullable: true }
+    } },
+    AnuncioProprietarioPublico: { type: 'object', required: ['id','nome','categoria','diaria','cidade','uf','demonstrativo'], properties: {
+      id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, categoria: { type: 'string' }, marca: { type: 'string', nullable: true },
+      modelo: { type: 'string', nullable: true }, ano: { type: 'integer', nullable: true }, descricao: { type: 'string', nullable: true },
+      diaria: { type: 'string' }, cidade: { type: 'string' }, uf: { type: 'string' }, condicoes: { type: 'string', nullable: true },
+      foto_url: { type: 'string', nullable: true }, demonstrativo: { type: 'boolean', enum: [false] }
+    } },
+    PerfilProprietarioPublico: { type: 'object', required: ['id','nome','foto_url','cidade','uf','descricao'], properties: {
+      id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, foto_url: { type: 'string', nullable: true }, cidade: { type: 'string' },
+      uf: { type: 'string' }, descricao: { type: 'string' }
     } },
     AnuncioPublico: { type: 'object', required: ['id','nome','categoria','diaria','cidade','uf','demonstrativo','proprietario','foto_url'], properties: {
       id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, categoria: { type: 'string' },

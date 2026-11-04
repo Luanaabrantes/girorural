@@ -7,7 +7,7 @@ function gerar(servico) {
   const publico = servico === 'girorural';
   const pasta = publico ? 'src' : 'auth-service/src';
     const esquemas = publico ? components.schemas : Object.fromEntries(
-        Object.entries(components.schemas).filter(([nome]) => !['ProprietarioPublico','AnuncioPublico'].includes(nome))
+        Object.entries(components.schemas).filter(([nome]) => !['ProprietarioPublico','AnuncioPublico','PerfilAtualizacao','PerfilPrivado','PerfilProprietarioPublico','AnuncioProprietarioPublico'].includes(nome))
     );
   return swaggerJsdoc({
     failOnErrors: true,

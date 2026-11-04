@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Gerencie seus dados e sua apresentação no GiroRural."><title>Meu perfil · GiroRural</title><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="perfil.css"><link rel="stylesheet" href="dashboard.css"></head>
+<body><header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav aria-label="Navegação principal"><a href="/anuncios.html">Explorar</a><a href="/painel.html">Meu negócio</a><a href="/minhas-reservas.html">Minhas reservas</a><a class="button small" href="/perfil.html" aria-current="page">Meu perfil</a></nav></header>
+<main class="page profile-page"><p class="eyebrow">SUA CONTA</p><h1>Meu perfil</h1><p id="profileStatus" class="notice" role="status" aria-live="polite">Carregando seu perfil...</p>
+<section id="profileContent" class="panel profile-panel" hidden>
+  <div class="profile-photo-area"><div class="profile-avatar"><span id="profileInitials"></span><img id="profilePhoto" alt="Foto de perfil" hidden></div><div><label class="button small" for="photoInput">Escolher foto</label><input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button id="removePhoto" class="button small outline" type="button" hidden>Remover foto</button><p class="muted">JPG, PNG ou WebP · até 5 MB</p></div></div>
+  <form id="profileForm" class="form-grid profile-form">
+    <label>Nome completo<input name="nome" maxlength="150" required></label>
+    <label>Nome de exibição<input name="nome_exibicao" maxlength="100"></label>
+    <label>E-mail<input name="email" type="email" readonly aria-describedby="emailHelp"></label><small id="emailHelp" class="field-help">Para mudar o e-mail, será necessário verificar a nova conta.</small>
+    <label>Telefone<input name="telefone" type="tel" maxlength="30" autocomplete="tel"></label>
+    <label>Cidade<input name="cidade" maxlength="120" autocomplete="address-level2"></label>
+    <label>Estado (UF)<input name="uf" maxlength="2" pattern="[A-Za-z]{2}" autocomplete="address-level1"></label>
+    <label class="profile-bio">Sobre você<textarea name="bio" maxlength="300" rows="4"></textarea><small>Até 300 caracteres. Esta descrição e sua localização podem aparecer no seu perfil público de proprietário.</small></label>
+    <div class="profile-actions"><button id="saveProfile" class="button" type="submit">Salvar alterações</button><a class="button outline" href="/painel.html">Meus equipamentos e reservas</a></div>
+  </form><p id="profileFeedback" role="status" aria-live="polite"></p>
+</section></main><script src="perfil.js"></script></body></html>

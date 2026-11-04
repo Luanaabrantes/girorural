@@ -37,7 +37,9 @@ async function carregar(){
     content.append(title,h('p','machine-model',[a.marca,a.modelo].filter(Boolean).join(' · ')||'Fabricante e modelo a combinar'),h('p','category',a.categoria));
     const facts=h('dl','detail-facts');facts.append(informacao('Localização',`${a.cidade} · ${a.uf}`),informacao('Diária',formatarDiaria(a.diaria)),informacao('Ano',a.ano||'Não informado'));content.append(facts);
     content.append(h('h2','','Sobre o equipamento'),h('p','detail-copy',a.descricao||'Descrição não informada.'),h('h2','','Condições de locação'),h('p','detail-copy',a.condicoes||'Condições a combinar com o proprietário.'));
-    owner.append(h('p','eyebrow','PROPRIETÁRIO'),h('p','owner-name',a.proprietario?.nome||'Proprietário'));content.append(owner);
+    owner.append(h('p','eyebrow','PROPRIETÁRIO'),h('p','owner-name',a.proprietario?.nome||'Proprietário'));
+    if(!a.demonstrativo&&a.proprietario?.id){const profile=h('a','button small outline','Ver perfil do proprietário');profile.href=`/proprietario.html?id=${encodeURIComponent(a.proprietario.id)}`;owner.append(profile)}
+    content.append(owner);
     booking.append(h('h2','','Solicitar reserva'));await montarReserva(a,booking);content.append(booking);layout.append(content);root.replaceChildren(layout);root.hidden=false;statusEl.hidden=true;
   }catch(error){statusEl.classList.add('error');statusEl.textContent=error.message}
 }
