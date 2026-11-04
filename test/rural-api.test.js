@@ -12,6 +12,7 @@ function bancoControlado() {
   const equipamentos = [{ id: 10, proprietario_id: 1, nome: 'Trator', categoria: 'Tratores', estado: 'ativo', descricao: 'Uso geral', imagem_chave: null }];
   const anuncios = [{ id: 100, equipamento_id: 10, proprietario_id: 1, diaria: '100.00', cidade: 'Ribeirão Preto', uf: 'SP', condicoes: null, estado: 'ativo' }];
   const reservas = [];
+  const anuncioImagens = [];
   let nextEquipamento = 11, nextAnuncio = 101, nextReserva = 1;
   async function execute(sql, p = []) {
     if (sql.includes('FROM anuncios a JOIN equipamentos e') && sql.includes("a.estado = 'ativo'")) {
@@ -20,6 +21,18 @@ function bancoControlado() {
         return { ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário demonstrativo (fictício)' : 'Pessoa proprietária A' };
       })];
     }
+    if (sql.startsWith('SELECT anuncio_id,id,chave FROM anuncio_imagens WHERE anuncio_id IN')) return [anuncioImagens.filter(i => p.map(Number).includes(i.anuncio_id))];
+    if (sql.startsWith('SELECT a.id,e.id equipamento_id,e.imagem_chave')) return [anuncios.filter(a => a.id===Number(p[0])&&a.proprietario_id===Number(p[1])).map(a=>{const e=equipamentos.find(e=>e.id===a.equipamento_id);return{id:a.id,equipamento_id:a.equipamento_id,imagem_chave:e?.imagem_chave,descricao:e?.descricao}})];
+    if (sql.startsWith('SELECT e.id equipamento_id,e.imagem_chave')) return [anuncios.filter(a=>a.id===Number(p[0])&&a.proprietario_id===Number(p[1])).map(a=>{const e=equipamentos.find(e=>e.id===a.equipamento_id);return{equipamento_id:a.equipamento_id,imagem_chave:e?.imagem_chave,descricao:e?.descricao}})];
+    if (sql.includes('SELECT a.estado anuncio_estado,e.estado equipamento_estado,a.proprietario_id,e.imagem_chave')) return [anuncios.filter(a=>a.id===Number(p[0])).map(a=>({anuncio_estado:a.estado,equipamento_estado:equipamentos.find(e=>e.id===a.equipamento_id)?.estado,proprietario_id:a.proprietario_id,imagem_chave:equipamentos.find(e=>e.id===a.equipamento_id)?.imagem_chave}))];
+    if (sql.includes('COUNT(*) total FROM anuncio_imagens')) return [[{total:anuncioImagens.filter(i=>i.anuncio_id===Number(p[0])).length}]];
+    if (sql.includes('SELECT id FROM anuncio_imagens WHERE anuncio_id=? AND chave=?')) return [anuncioImagens.filter(i=>i.anuncio_id===Number(p[0])&&i.chave===p[1])];
+    if (sql.startsWith('SELECT id,chave FROM anuncio_imagens WHERE anuncio_id=?')) return [anuncioImagens.filter(i=>i.anuncio_id===Number(p[0]))];
+    if (sql.startsWith('SELECT chave FROM anuncio_imagens WHERE id=? AND anuncio_id=?')) return [anuncioImagens.filter(i=>i.id===Number(p[0])&&i.anuncio_id===Number(p[1]))];
+    if (sql.startsWith('SELECT chave FROM anuncio_imagens WHERE id=? AND anuncio_id=? AND proprietario_id=?')) return [anuncioImagens.filter(i=>i.id===Number(p[0])&&i.anuncio_id===Number(p[1])&&i.proprietario_id===Number(p[2]))];
+    if (sql.startsWith('SELECT chave FROM anuncio_imagens WHERE anuncio_id=? ORDER BY id LIMIT 1')) return [anuncioImagens.filter(i=>i.anuncio_id===Number(p[0])).slice(0,1)];
+    if (sql.startsWith('DELETE FROM anuncio_imagens')) { const ix=anuncioImagens.findIndex(i=>i.id===Number(p[0])&&i.anuncio_id===Number(p[1])&&i.proprietario_id===Number(p[2]));if(ix<0)return [{affectedRows:0}];anuncioImagens.splice(ix,1);return [{affectedRows:1}]; }
+    if (sql.startsWith('INSERT INTO anuncio_imagens')) { const i={id:anuncioImagens.length+1,anuncio_id:Number(p[0]),proprietario_id:Number(p[1]),chave:p[2]};anuncioImagens.push(i);return [{insertId:i.id,affectedRows:1}]; }
     if (sql.includes('SELECT a.id, e.nome') && sql.includes("a.estado='ativo'")) {
       const a = anuncios.find(x => x.id === p[0] && x.estado === 'ativo');
       if (!a) return [[]];
@@ -27,6 +40,7 @@ function bancoControlado() {
       return [[{ ...equipamento, ...a, proprietario_nome: equipamento.descricao?.startsWith('[DEMO FICTÍCIO]') ? 'Proprietário demonstrativo (fictício)' : 'Pessoa proprietária A' }]];
     }
     if (sql.includes('SELECT id FROM usuarios')) return [users.has(Number(p[0])) ? [{ id: Number(p[0]) }] : []];
+    if (sql.includes('SELECT id,descricao FROM equipamentos WHERE id=? AND proprietario_id=?')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]))];
     if (sql.includes('SELECT id FROM equipamentos WHERE id=? AND proprietario_id=?')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]))];
     if (sql.includes('FROM equipamentos WHERE proprietario_id=?')) return [equipamentos.filter(e => e.proprietario_id === Number(p[0]))];
     if (sql.includes('SELECT * FROM premium_assinaturas')) return [[]];
@@ -38,6 +52,7 @@ function bancoControlado() {
     if (sql.startsWith('SELECT id FROM equipamentos WHERE id=? AND proprietario_id=? AND estado=')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]) && e.estado === 'ativo')];
     if (sql.startsWith('INSERT INTO anuncios')) { const a = { id: nextAnuncio++, equipamento_id: p[0], proprietario_id: p[1], diaria: p[2], cidade: p[3], uf: p[4], condicoes: p[5], estado: p[6] }; anuncios.push(a); return [{ insertId: a.id, affectedRows: 1 }]; }
     if (sql.startsWith('SELECT id,estado FROM anuncios WHERE id=? AND proprietario_id=?')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1]))];
+    if (sql.includes('SELECT a.id,e.descricao FROM anuncios a JOIN equipamentos e') && sql.includes('FOR UPDATE')) return [anuncios.filter(a => a.id===Number(p[0])&&a.proprietario_id===Number(p[1])).map(a=>({id:a.id,descricao:equipamentos.find(e=>e.id===a.equipamento_id)?.descricao}))];
     if (sql.includes('SELECT a.id,a.estado,e.estado equipamento_estado')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1])).map(a => ({ id: a.id, estado: a.estado, equipamento_estado: equipamentos.find(e => e.id === a.equipamento_id)?.estado }))];
     if (sql.startsWith('SELECT id FROM anuncios WHERE id=? AND proprietario_id=?')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1]))];
     if (sql.startsWith('UPDATE anuncios SET')) { const id = Number(p.at(-2)), owner = Number(p.at(-1)), a = anuncios.find(x => x.id === id && x.proprietario_id === owner); if (!a) return [{ affectedRows: 0 }]; const cols = sql.match(/SET (.*?) WHERE/)[1].split(','); cols.forEach((col, i) => { a[col.split('=')[0]] = p[i]; }); return [{ affectedRows: 1 }]; }
@@ -45,18 +60,21 @@ function bancoControlado() {
     if (sql.includes('SELECT a.id,e.descricao FROM anuncios a JOIN equipamentos e')) return [anuncios.filter(a => a.id === Number(p[0]) && a.estado === 'ativo' && equipamentos.find(e => e.id === a.equipamento_id)?.estado === 'ativo').map(a => ({ id: a.id, descricao: equipamentos.find(e => e.id === a.equipamento_id)?.descricao }))];
     if (sql.startsWith('INSERT INTO reservas')) { const r = { id: nextReserva++, anuncio_id: p[0], solicitante_id: p[1], inicio: p[2], fim: p[3], estado: 'solicitada' }; reservas.push(r); return [{ insertId: r.id, affectedRows: 1 }]; }
     if (sql.includes('SELECT r.id,r.anuncio_id,r.solicitante_id')) { const r = reservas.find(x => x.id === Number(p[0]) && (x.solicitante_id === Number(p[1]) || anuncios.find(a => a.id === x.anuncio_id)?.proprietario_id === Number(p[2]))); return [r ? [{ ...r, proprietario_id: anuncios.find(a => a.id === r.anuncio_id).proprietario_id }] : []]; }
+    if (sql.includes('SELECT r.id,r.anuncio_id,e.nome')) return [reservas.filter(r => anuncios.find(a => a.id === r.anuncio_id)?.proprietario_id === Number(p[0])).map(r => ({ ...r, nome: equipamentos.find(e => e.id === anuncios.find(a => a.id === r.anuncio_id)?.equipamento_id)?.nome }))];
     if (sql.includes('WHERE r.solicitante_id=?')) return [reservas.filter(r => r.solicitante_id === Number(p[0]))];
     throw new Error(`SQL de teste sem implementação: ${sql}`);
   }
   const db = { execute, async getConnection() { return { execute, async beginTransaction(){}, async commit(){}, async rollback(){}, release(){} }; } };
-  return { db, equipamentos, anuncios, reservas };
+  return { db, equipamentos, anuncios, reservas, anuncioImagens };
 }
 
 test('API GiroRural aplica papel, isolamento, projeção pública e registra eventos após gravações', async t => {
-  const { db, anuncios, equipamentos, reservas } = bancoControlado(), eventos = [];
-  const originalEnviar = storage.enviarFotoAnuncio, originalLer = storage.lerFotoAnuncio;
-  storage.enviarFotoAnuncio = async (owner, buffer, formato) => { assert.equal(owner, 1); assert.ok(buffer.length); assert.equal(formato, 'png'); return 'anuncios/1/11111111-1111-4111-8111-111111111111.png'; };
+  const { db, anuncios, equipamentos, reservas, anuncioImagens } = bancoControlado(), eventos = [];
+  const originalEnviar = storage.enviarFotoAnuncio, originalLer = storage.lerFotoAnuncio, originalRemover = storage.removerFotoAnuncio;
+  const objectKeys=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];let objectIndex=0;
+  storage.enviarFotoAnuncio = async (owner, buffer, formato) => { assert.equal(owner, 1); assert.ok(buffer.length); assert.equal(formato, 'png'); return `anuncios/1/${objectKeys[objectIndex++]}.png`; };
   storage.lerFotoAnuncio = async () => Readable.from([Buffer.from('imagem-validada')]);
+  storage.removerFotoAnuncio = async () => {};
   const authenticate = (req, res, next) => {
     const role = { donoA: 'PROPRIETARIO', donoB: 'PROPRIETARIO', locA: 'LOCATARIO', locB: 'LOCATARIO' }[req.cookies.token];
     if (!role) return res.status(401).json({ mensagem: 'Sessão necessária.' });
@@ -67,7 +85,7 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
   app.use((e, req, res, next) => res.status(500).json({ mensagem: 'erro inesperado' }));
   const server = app.listen(0, '127.0.0.1'); await new Promise(r => server.once('listening', r));
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
-  t.after(() => { storage.enviarFotoAnuncio = originalEnviar; storage.lerFotoAnuncio = originalLer; });
+  t.after(() => { storage.enviarFotoAnuncio = originalEnviar; storage.lerFotoAnuncio = originalLer; storage.removerFotoAnuncio = originalRemover; });
   const base = `http://127.0.0.1:${server.address().port}`;
   const request = async (path, token, method = 'GET', body) => {
     const r = await fetch(base + path, { method, headers: { ...(token ? { Cookie: `token=${token}` } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -104,6 +122,8 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
     assert.equal(r.status, 201); assert.equal(reservas[0].solicitante_id, 3);
     assert.equal((await request(`/api/reservas/${r.body.id}`, 'locB')).status, 404);
     assert.equal((await request(`/api/reservas/${r.body.id}`, 'locA')).status, 200);
+    const recebidas = await request('/api/reservas/recebidas', 'donoA'); assert.equal(recebidas.status, 200); assert.equal(recebidas.body.reservas[0].id, r.body.id);
+    assert.equal((await request('/api/reservas/recebidas', 'locA')).status, 403);
     assert.equal(eventos.filter(x => x.acao === 'RESERVA_SOLICITADA').length, 1);
   });
   await t.test('validação rejeita datas malformadas e sessão ausente retorna 401', async () => {
@@ -118,11 +138,28 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
     assert.equal((await request('/api/anuncios/100/foto', 'donoB')).status, 200);
     const photo = await fetch(base + '/api/anuncios/100/foto'); assert.equal(photo.status, 200); assert.match(photo.headers.get('content-type'), /image\/png/);
   });
+  await t.test('galeria persiste fotos, permite escolher/remover principal e protege propriedade', async () => {
+    const png = await sharp({ create: { width: 9, height: 7, channels: 3, background: '#8e734b' } }).png().toBuffer();
+    const form = new FormData(); form.append('fotos', new Blob([png], { type: 'image/png' }), 'galeria-a.png'); form.append('fotos', new Blob([png], { type: 'image/png' }), 'galeria-b.png');
+    const response = await fetch(base + '/api/anuncios/100/fotos', { method: 'POST', headers: { Cookie: 'token=donoA' }, body: form }); const body = await response.json();
+    assert.equal(response.status, 201); assert.equal(body.fotos.length, 2); assert.equal(anuncioImagens.length, 3);
+    assert.equal((await request('/api/anuncios/100')).body.anuncio.fotos.length, 3);
+    assert.equal((await request(`/api/anuncios/100/fotos/${body.fotos[0].id}/principal`, 'donoB', 'PATCH')).status, 404);
+    assert.equal((await request(`/api/anuncios/100/fotos/${body.fotos[0].id}/principal`, 'donoA', 'PATCH')).status, 200);
+    assert.equal(equipamentos[0].imagem_chave, 'anuncios/1/22222222-2222-4222-8222-222222222222.png');
+    assert.equal((await request(`/api/anuncios/100/fotos/${body.fotos[0].id}`, null)).status, 200);
+    assert.equal((await request(`/api/anuncios/100/fotos/${body.fotos[0].id}`, 'donoB', 'DELETE')).status, 404);
+    assert.equal((await request(`/api/anuncios/100/fotos/${body.fotos[0].id}`, 'donoA', 'DELETE')).status, 204);
+    assert.equal(equipamentos[0].imagem_chave, 'anuncios/1/11111111-1111-4111-8111-111111111111.png');
+  });
   await t.test('anúncios demonstrativos são identificados e não aceitam reservas', async () => {
     equipamentos.push({ id: 99, proprietario_id: 1, nome: 'DEMO · Grade aradora', categoria: 'Preparo do solo', estado: 'ativo', descricao: '[DEMO FICTÍCIO] Dados ilustrativos', imagem_chave: null });
     anuncios.push({ id: 199, equipamento_id: 99, proprietario_id: 1, diaria: '250.00', cidade: 'Campinas', uf: 'SP', condicoes: 'Não aceita reservas', estado: 'ativo' });
     const item = (await request('/api/anuncios/199')).body.anuncio;
     assert.equal(item.demonstrativo, true); assert.equal(item.proprietario.nome, 'Proprietário demonstrativo (fictício)');
+    assert.equal((await request('/api/anuncios/199', 'donoA', 'PUT', { cidade: 'Alterada' })).status, 409);
+    assert.equal((await request('/api/anuncios/199', 'donoA', 'DELETE')).status, 409);
+    assert.equal((await request('/api/equipamentos/99', 'donoA', 'PUT', { nome: 'Alterado' })).status, 409);
     assert.equal((await request('/api/reservas', 'locA', 'POST', { anuncio_id: 199, inicio: '2026-11-10', fim: '2026-11-11' })).status, 409);
   });
 });

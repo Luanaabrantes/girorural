@@ -561,7 +561,8 @@
           "uf",
           "demonstrativo",
           "proprietario",
-          "foto_url"
+          "foto_url",
+          "fotos"
         ],
         "properties": {
           "id": {
@@ -620,7 +621,43 @@
           "foto_url": {
             "type": "string",
             "nullable": true,
-            "description": "Imagem publicada após validação de acesso pela API."
+            "description": "Imagem principal publicada após validação de acesso pela API."
+          },
+          "fotos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FotoAnuncio"
+            }
+          }
+        }
+      },
+      "FotoAnuncio": {
+        "type": "object",
+        "required": [
+          "id",
+          "foto_url",
+          "principal"
+        ],
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "string",
+                "enum": [
+                  "legacy"
+                ]
+              }
+            ]
+          },
+          "foto_url": {
+            "type": "string"
+          },
+          "principal": {
+            "type": "boolean"
           }
         }
       },
@@ -2664,12 +2701,241 @@
         }
       }
     },
+    "/api/anuncios/{id}/fotos": {
+      "post": {
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Adicionar fotos à galeria do anúncio",
+        "description": "Até oito arquivos por envio e doze fotos por anúncio. JPEG PNG e WebP estáticos até 5 MB cada; o backend reencoda as imagens. O proprietário é obtido da sessão.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "fotos"
+                ],
+                "properties": {
+                  "fotos": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Fotos adicionadas"
+          },
+          "400": {
+            "description": "Arquivo inválido"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer PROPRIETARIO"
+          },
+          "404": {
+            "description": "Anúncio de outra conta"
+          },
+          "409": {
+            "description": "Limite de fotos atingido"
+          },
+          "413": {
+            "description": "Arquivo acima de 5 MB"
+          },
+          "503": {
+            "description": "MinIO indisponível"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Consultar galeria do anúncio ativo ou próprio",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fotos com indicador de imagem principal"
+          },
+          "404": {
+            "description": "Anúncio indisponível"
+          }
+        }
+      }
+    },
+    "/api/anuncios/{id}/fotos/{fotoId}": {
+      "get": {
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Exibir foto da galeria",
+        "security": [],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "path",
+            "name": "fotoId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Imagem servida pelo MinIO"
+          },
+          "404": {
+            "description": "Foto indisponível"
+          },
+          "503": {
+            "description": "MinIO indisponível"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Remover foto do próprio anúncio",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "path",
+            "name": "fotoId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Foto removida"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer PROPRIETARIO"
+          },
+          "404": {
+            "description": "Foto de outra conta"
+          }
+        }
+      }
+    },
+    "/api/anuncios/{id}/fotos/{fotoId}/principal": {
+      "patch": {
+        "tags": [
+          "Anúncios"
+        ],
+        "summary": "Definir foto principal do próprio anúncio",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "path",
+            "name": "fotoId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Foto principal atualizada"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer PROPRIETARIO"
+          },
+          "404": {
+            "description": "Foto de outra conta"
+          }
+        }
+      }
+    },
     "/api/anuncios": {
       "get": {
         "tags": [
           "Anúncios"
         ],
-        "summary": "Listar anúncios ativos publicamente, com filtros por cidade/categoria e dados públicos do proprietário",
+        "summary": "Listar anúncios ativos com pesquisa, filtros e ordenação",
         "security": [],
         "parameters": [
           {
@@ -2684,6 +2950,44 @@
             "name": "categoria",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "busca",
+            "description": "Busca em nome, categoria, marca, modelo e descrição",
+            "schema": {
+              "type": "string",
+              "maxLength": 120
+            }
+          },
+          {
+            "in": "query",
+            "name": "diaria_min",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "diaria_max",
+            "schema": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "ordenar",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "recentes",
+                "menor-preco",
+                "maior-preco"
+              ],
+              "default": "recentes"
             }
           },
           {
@@ -3139,6 +3443,30 @@
         }
       }
     },
+    "/api/reservas/recebidas": {
+      "get": {
+        "tags": [
+          "Reservas"
+        ],
+        "summary": "Listar solicitações recebidas pelo proprietário",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservas de anúncios próprios"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer PROPRIETARIO"
+          }
+        }
+      }
+    },
     "/api/reservas/{id}": {
       "get": {
         "tags": [
@@ -3222,30 +3550,6 @@
           },
           "409": {
             "description": "Transição inválida ou período ocupado"
-          }
-        }
-      }
-    },
-    "/api/reservas/recebidas": {
-      "get": {
-        "tags": [
-          "Reservas"
-        ],
-        "summary": "Listar solicitações recebidas pelo proprietário",
-        "security": [
-          {
-            "sessao": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Reservas de anúncios próprios"
-          },
-          "401": {
-            "description": "Sessão ausente"
-          },
-          "403": {
-            "description": "Requer PROPRIETARIO"
           }
         }
       }

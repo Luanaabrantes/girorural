@@ -71,13 +71,18 @@ module.exports = {
       id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, foto_url: { type: 'string', nullable: true }, cidade: { type: 'string' },
       uf: { type: 'string' }, descricao: { type: 'string' }
     } },
-    AnuncioPublico: { type: 'object', required: ['id','nome','categoria','diaria','cidade','uf','demonstrativo','proprietario','foto_url'], properties: {
+    AnuncioPublico: { type: 'object', required: ['id','nome','categoria','diaria','cidade','uf','demonstrativo','proprietario','foto_url','fotos'], properties: {
       id: { type: 'integer', minimum: 1 }, nome: { type: 'string' }, categoria: { type: 'string' },
       marca: { type: 'string', nullable: true }, modelo: { type: 'string', nullable: true }, ano: { type: 'integer', nullable: true },
       descricao: { type: 'string', nullable: true }, informacoes_adicionais: { type: 'string', nullable: true }, diaria: { type: 'string', pattern: '^\\d+\\.\\d{2}$' },
       cidade: { type: 'string' }, uf: { type: 'string', minLength: 2, maxLength: 2 },
       condicoes: { type: 'string', nullable: true }, demonstrativo: { type: 'boolean', description: 'Registros fictícios não aceitam solicitações de reserva.' },
-      proprietario: { $ref: '#/components/schemas/ProprietarioPublico' }, foto_url: { type: 'string', nullable: true, description: 'Imagem publicada após validação de acesso pela API.' }
+      proprietario: { $ref: '#/components/schemas/ProprietarioPublico' }, foto_url: { type: 'string', nullable: true, description: 'Imagem principal publicada após validação de acesso pela API.' },
+      fotos: { type: 'array', items: { $ref: '#/components/schemas/FotoAnuncio' } }
+    } },
+    FotoAnuncio: { type: 'object', required: ['id','foto_url','principal'], properties: {
+      id: { oneOf: [{type: 'integer', minimum: 1}, {type: 'string', enum: ['legacy']}] },
+      foto_url: { type: 'string' }, principal: { type: 'boolean' }
     } },
     DecisaoReserva: { type: 'object', required: ['estado'], additionalProperties: false, properties: { estado: { type: 'string', enum: ['confirmada','recusada'] } } },
     Evento: { type: 'object', required: ['id','usuario_id','acao','timestamp'], properties: {
