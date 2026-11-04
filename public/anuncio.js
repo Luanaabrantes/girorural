@@ -6,7 +6,14 @@ function ilustracao(a){
   const text=`${a.categoria} ${a.nome}`.toLocaleLowerCase('pt-BR'),icon=text.includes('colheit')?'colheitadeira':text.includes('pulver')?'pulverizador':text.includes('fertiliz')||text.includes('aduba')?'distribuidor':text.includes('carreta')||text.includes('transporte')?'carreta':text.includes('grade')?'grade':text.includes('trator')?'trator':text.includes('plantio')||text.includes('semead')?'plantadeira':'implemento';
   const use=document.createElementNS('http://www.w3.org/2000/svg','use');use.setAttribute('href',`/imagens/equipamentos.svg#${icon}`);svg.append(use);return svg;
 }
-function imagem(a){const frame=h('div','detail-image');if(a.foto_url){const photo=h('img','equipment-photo');photo.src=a.foto_url;photo.alt=`Foto de ${a.nome}`;photo.onerror=()=>frame.replaceChildren(ilustracao(a));frame.append(photo)}else frame.append(ilustracao(a));return frame}
+function galeria(a){
+  const root=h('section','equipment-gallery'),frame=h('div','detail-image'),thumbs=h('div','gallery-thumbnails');
+  const fotos=Array.isArray(a.fotos)?a.fotos:[],choices=fotos.length?fotos:(a.foto_url?[{foto_url:a.foto_url,principal:true}]:[]);
+  const mostrar=foto=>{frame.replaceChildren();if(!foto?.foto_url){frame.append(ilustracao(a));return}const image=h('img','equipment-photo');image.src=foto.foto_url;image.alt=`Foto de ${a.nome}`;image.onerror=()=>frame.replaceChildren(ilustracao(a));frame.append(image);for(const button of thumbs.querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.url===foto.foto_url))};
+  if(!choices.length)frame.append(ilustracao(a));
+  for(const foto of choices){const button=h('button','gallery-thumb'),image=h('img');button.type='button';button.dataset.url=foto.foto_url;button.setAttribute('aria-label',`${foto.principal?'Foto principal':'Ver foto'} de ${a.nome}`);button.setAttribute('aria-pressed','false');image.src=foto.foto_url;image.alt='';button.append(image);button.onclick=()=>mostrar(foto);thumbs.append(button)}
+  mostrar(choices.find(f=>f.principal)||choices[0]);root.append(frame);if(choices.length>1)root.append(thumbs);return root;
+}
 function informacao(label,value){const item=h('div','detail-fact');item.append(h('dt','',label),h('dd','',value||'Não informado'));return item}
 function formatarDiaria(value){return `${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(value))} / dia`}
 function hoje(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
@@ -32,11 +39,12 @@ async function carregar(){
     const response=await fetch(`/api/anuncios/${encodeURIComponent(id)}`,{cache:'no-store'}),data=await response.json();
     if(!response.ok)throw Error(data.mensagem||'Este anúncio não está disponível.');
     const a=data.anuncio,layout=h('div','detail-layout'),content=h('div','detail-content'),title=h('h1','',a.nome),owner=h('section','owner-summary'),booking=h('section','booking-panel');
-    document.title=`${a.nome} · GiroRural`;layout.append(imagem(a));
+    document.title=`${a.nome} · GiroRural`;layout.append(galeria(a));
     if(a.demonstrativo)content.append(h('span','demo-badge','Demonstração fictícia'));
     content.append(title,h('p','machine-model',[a.marca,a.modelo].filter(Boolean).join(' · ')||'Fabricante e modelo a combinar'),h('p','category',a.categoria));
     const facts=h('dl','detail-facts');facts.append(informacao('Localização',`${a.cidade} · ${a.uf}`),informacao('Diária',formatarDiaria(a.diaria)),informacao('Ano',a.ano||'Não informado'));content.append(facts);
     content.append(h('h2','','Sobre o equipamento'),h('p','detail-copy',a.descricao||'Descrição não informada.'),h('h2','','Condições de locação'),h('p','detail-copy',a.condicoes||'Condições a combinar com o proprietário.'));
+    if(a.informacoes_adicionais)content.append(h('h2','','Informações úteis'),h('p','detail-copy',a.informacoes_adicionais));
     owner.append(h('p','eyebrow','PROPRIETÁRIO'),h('p','owner-name',a.proprietario?.nome||'Proprietário'));
     if(!a.demonstrativo&&a.proprietario?.id){const profile=h('a','button small outline','Ver perfil do proprietário');profile.href=`/proprietario.html?id=${encodeURIComponent(a.proprietario.id)}`;owner.append(profile)}
     content.append(owner);
