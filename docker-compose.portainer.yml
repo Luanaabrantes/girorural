@@ -10,11 +10,11 @@ services:
       STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       APP_BASE_URL: ${APP_BASE_URL:-}
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
+      DB_HOST: ${DB_HOST:?Defina DB_HOST do MariaDB externo}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:?Defina DB_USER do MariaDB externo}
+      DB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD do MariaDB externo}
+      DB_NAME: ${DB_NAME:?Defina DB_NAME do GiroRural}
 
 
       MINIO_ENDPOINT: minio
@@ -54,19 +54,19 @@ services:
       PORT: 3001
       LOG_SERVICE_URL: http://log-service:3002
 
-      DB_HOST: ${DB_HOST}
-      DB_PORT: ${DB_PORT}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
+      DB_HOST: ${DB_HOST:?Defina DB_HOST do MariaDB externo}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:?Defina DB_USER do MariaDB externo}
+      DB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD do MariaDB externo}
+      DB_NAME: ${DB_NAME:?Defina DB_NAME do GiroRural}
 
-      JWT_SECRET: ${JWT_SECRET}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET}
 
-      MAIL_HOST: ${MAIL_HOST}
-      MAIL_PORT: ${MAIL_PORT}
-      MAIL_USER: ${MAIL_USER}
-      MAIL_PASS: ${MAIL_PASS}
-      MAIL_FROM: ${MAIL_FROM}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASS: ${MAIL_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
 
       GIRO_RURAL_URL: https://luana-abrantes-isw055.lapps.studio
 
