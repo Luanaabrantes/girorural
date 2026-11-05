@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Acompanhe a locação: aprovação, pagamento e devolução.">
+<title>Detalhe da reserva · GiroRural</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"></head>
+<body><header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav></nav></header>
+<main class="page">
+  <a id="voltar" class="back-link" href="/minhas-reservas.html">← Voltar</a>
+  <p id="status" class="notice" role="status" aria-live="polite">Carregando reserva...</p>
+  <div id="conteudo" hidden>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-top:12px">
+      <div><p class="eyebrow" id="codigo"></p><h1 id="titulo"></h1><p id="local" style="margin:0;color:var(--gr-cinza)"></p></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="selos"></div>
+    </div>
+    <div class="duas-colunas" style="margin-top:24px">
+      <div>
+        <section class="panel"><h2>Andamento</h2><ol id="timeline" class="timeline"></ol></section>
+        <section class="panel" id="secObs" hidden><h2>Mensagem do locatário</h2><p id="observacao" style="margin:0;white-space:pre-wrap"></p></section>
+        <section class="panel" id="secRecusa" hidden><h2>Motivo da recusa</h2><p id="motivo" style="margin:0"></p></section>
+        <section class="panel"><h2>Condições do anúncio</h2><p id="condicoes" style="margin:0;white-space:pre-wrap;color:var(--gr-cinza)"></p></section>
+      </div>
+      <aside>
+        <section class="panel">
+          <img id="foto" alt="" style="width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:8px;background:#DCE7DA" hidden>
+          <h2 style="margin-top:14px">Resumo</h2>
+          <div id="resumo"></div>
+        </section>
+        <section class="panel" id="secContato"><h2 id="contatoTitulo">Contato</h2><div id="contato"></div></section>
+        <section class="panel" id="secAcoes" hidden><h2>Ações</h2><div id="acoes" style="display:flex;flex-direction:column;gap:10px"></div>
+          <form id="formRecusa" hidden style="margin-top:12px">
+            <div class="campo"><label for="motivoRecusa">Motivo da recusa (enviado ao locatário)</label><textarea id="motivoRecusa" maxlength="500" rows="3" required placeholder="Ex.: o equipamento estará em manutenção nessas datas."></textarea></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="button danger" type="submit">Confirmar recusa</button><button class="button outline" type="button" id="cancelarRecusa">Voltar</button></div>
+          </form>
+          <p id="feedback" role="status" aria-live="polite"></p>
+        </section>
+      </aside>
+    </div>
+  </div>
+</main>
+<script src="reserva.js"></script><script src="nav.js"></script></body></html>

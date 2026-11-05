@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Equipamentos disponíveis · GiroRural</title><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="catalogo.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Equipamentos disponíveis · GiroRural</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="catalogo.css"><link rel="stylesheet" href="tema.css"></head>
 <body>
   <header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav aria-label="Navegação principal"><a href="/painel.html">Meu negócio</a><a href="/perfil.html">Meu perfil</a><a href="/minhas-reservas.html">Minhas reservas</a><a class="button small" href="/login.html">Entrar</a></nav></header>
   <main class="page"><p class="eyebrow">OFERTA LOCAL</p><h1>Equipamentos disponíveis</h1><p class="lead">Encontre opções e combine os detalhes da locação diretamente com o proprietário.</p>
     <form id="filtros" class="toolbar"><label>Pesquisar<input name="busca" placeholder="Nome, marca, modelo"></label><label>Cidade<input name="cidade" placeholder="Ex.: Ribeirão Preto"></label><label>Categoria<input name="categoria" placeholder="Ex.: Plantio"></label><label>Diária mínima<input name="diaria_min" type="number" min="0" step="0.01" placeholder="R$"></label><label>Diária máxima<input name="diaria_max" type="number" min="0" step="0.01" placeholder="R$"></label><label>Ordenar por<select name="ordenar"><option value="recentes">Mais recentes</option><option value="menor-preco">Menor diária</option><option value="maior-preco">Maior diária</option></select></label><button class="button">Buscar</button><button class="button outline" type="reset">Limpar</button></form>
     <p id="status" role="status" class="notice">Carregando anúncios...</p><section id="anuncios" class="cards"></section>
   </main><script src="anuncios.js"></script>
-</body>
+<script src="nav.js"></script></body>
 </html>

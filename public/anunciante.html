@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Habilite o modo anunciante e gere renda com máquinas paradas.">
+<title>Anunciar equipamento · GiroRural</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"></head>
+<body><header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav></nav></header>
+<main class="page">
+  <p class="eyebrow">Modo anunciante</p>
+  <h1>Sua máquina parada pode gerar renda</h1>
+  <p class="lead" style="max-width:720px;color:var(--gr-cinza)">Cadastre tratores e implementos, defina a diária e decida quem aluga. Você aprova cada pedido e acompanha pagamento e devolução pela plataforma.</p>
+  <div class="etapas" aria-label="Etapas">
+    <span id="etapa1" class="atual">1. Conta e perfil</span><span id="etapa2">2. Termos do anunciante</span><span id="etapa3">3. Primeiro anúncio</span>
+  </div>
+  <section class="beneficios" aria-label="Benefícios">
+    <article><h3>Você decide quem aluga</h3><p>Cada solicitação chega para sua aprovação, com período, valor e observações do produtor.</p></article>
+    <article><h3>Agenda sem conflito</h3><p>O sistema bloqueia períodos já aprovados e impede reservas sobrepostas do mesmo equipamento.</p></article>
+    <article><h3>Pagamento registrado</h3><p>Após a aprovação, o locatário paga pela plataforma (modo de teste) e você acompanha em Minha garagem.</p></article>
+  </section>
+  <p id="status" class="notice" role="status" aria-live="polite">Verificando sua conta...</p>
+  <section id="passos" class="duas-colunas" hidden>
+    <article class="panel">
+      <h2>Antes de publicar</h2>
+      <ul id="checklist" class="checklist"></ul>
+      <p id="perfilDica" class="notice" hidden>Complete telefone, cidade e UF em <a href="/perfil.html?voltar=/anunciante.html">Meu perfil</a>. Eles só são mostrados ao locatário depois que você aprovar a reserva.</p>
+      <form id="formAceite">
+        <label class="aceite"><input id="aceite" type="checkbox" required><span>Declaro que sou responsável pelos equipamentos que anunciar, que as informações e fotos são verdadeiras e que cumprirei as condições publicadas em cada anúncio.</span></label>
+        <button id="habilitar" class="button" type="submit">Habilitar modo anunciante</button>
+      </form>
+      <p id="feedback" role="status" aria-live="polite"></p>
+    </article>
+    <aside class="panel">
+      <h2>Como funciona</h2>
+      <ol style="margin:0;padding-left:20px;line-height:1.8;color:var(--gr-cinza)">
+        <li>Cadastre o equipamento com marca, modelo, ano e fotos.</li>
+        <li>Publique o anúncio com diária, cidade e condições.</li>
+        <li>Receba pedidos e aprove ou recuse em até 24 horas.</li>
+        <li>Após o pagamento, combine a entrega pelo contato liberado.</li>
+        <li>Conclua a locação na devolução do equipamento.</li>
+      </ol>
+      <p style="margin:16px 0 0;font-size:14px;color:var(--gr-cinza)">Plano gratuito: até 2 anúncios ativos. Plano Pro: até 20.</p>
+    </aside>
+  </section>
+</main>
+<script src="anunciante.js"></script><script src="nav.js"></script></body></html>

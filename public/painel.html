@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Meu negócio · GiroRural</title>
-  <link rel="stylesheet" href="rural.css">
+  <title>Minha garagem · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css">
   <link rel="stylesheet" href="dashboard.css">
-</head>
+<link rel="stylesheet" href="tema.css"></head>
 <body>
   <header class="top">
     <a class="brand" href="/">Giro<span>Rural</span></a>
@@ -16,21 +16,21 @@
     </nav>
   </header>
   <main class="page">
-    <p class="eyebrow">ÁREA DO PROPRIETÁRIO</p><h1>Gerencie seu negócio</h1>
+    <p class="eyebrow">Área do proprietário</p><h1>Minha garagem</h1>
     <p id="status" class="notice" role="status">Verificando sua sessão...</p>
     <div id="area" hidden>
-      <nav class="dashboard-nav" aria-label="Navegação do negócio">
-        <a href="/perfil.html">Meu perfil</a><a href="#meus-equipamentos">Meus equipamentos</a>
-        <a href="#anuncios-publicados">Meus anúncios</a><a href="/minhas-reservas.html">Minhas reservas</a><a href="#meu-plano">Meu plano</a>
+      <nav class="tabs" aria-label="Seções da garagem">
+        <a href="#minhas-reservas">Solicitações recebidas <span id="pendentes" class="count" hidden></span></a><a href="#anuncios-publicados">Meus anúncios</a><a href="#meus-equipamentos">Equipamentos</a><a href="#meus-anuncios">Publicar anúncio</a><a href="#meu-plano">Plano</a>
       </nav>
+      <section class="panel" id="minhas-reservas"><h2>Solicitações recebidas</h2><div id="reservas"></div></section>
       <section class="panel" id="meu-plano"><h2>Plano e limite de anúncios</h2><p id="plano">Consultando seu plano...</p><p id="checkoutStatus" role="status"></p><button id="assinar" class="button" type="button" hidden>Assinar Pro · R$ 39,90/mês</button><small>Stripe em ambiente de teste. O aluguel é negociado diretamente entre as partes.</small></section>
       <section class="panel" id="meus-equipamentos"><h2>Meus equipamentos</h2><div id="equipamentosMeus"></div><h3>Cadastrar equipamento</h3><form id="equipamento" class="form-grid"><label>Nome<input name="nome" maxlength="150" required></label><label>Categoria<input name="categoria" maxlength="80" list="categoriasEquipamento" required></label><datalist id="categoriasEquipamento"><option value="Tratores"><option value="Colheitadeiras"><option value="Plantadeiras"><option value="Pulverizadores"><option value="Distribuidores"><option value="Preparo do solo"><option value="Transporte"></datalist><label>Marca<input name="marca" maxlength="100"></label><label>Modelo<input name="modelo" maxlength="120"></label><label>Ano<input name="ano" type="number" min="1800" max="2100"></label><label style="flex-basis:100%">Descrição detalhada<textarea name="descricao" maxlength="5000" rows="4"></textarea></label><label style="flex-basis:100%">Informações úteis para a categoria<textarea id="informacoesAdicionais" name="informacoes_adicionais" maxlength="3000" rows="3" placeholder="Informe apenas detalhes confirmados que ajudem a avaliar o equipamento."></textarea><small id="dicaCategoria">Campo opcional. Não inclua especificações que você não confirmou.</small></label><button class="button">Salvar equipamento</button></form></section>
       <section class="panel" id="meus-anuncios"><h2>Publicar anúncio</h2><form id="anuncio" class="form-grid"><label>Equipamento<select name="equipamento_id" required></select></label><label>Diária (R$)<input name="diaria" type="number" min="0.01" step="0.01" required></label><label>Cidade<input name="cidade" maxlength="120" required></label><label>Estado (UF)<input name="uf" maxlength="2" minlength="2" pattern="[A-Za-z]{2}" required></label><label style="flex-basis:100%">Condições de locação<textarea name="condicoes" maxlength="5000" rows="3"></textarea></label><label>Status do anúncio<select name="estado"><option value="ativo">Ativo</option><option value="rascunho">Rascunho</option></select></label><button class="button">Publicar anúncio</button></form><p class="notice">Gratuito: até 2 anúncios ativos · Pro: até 20 anúncios ativos.</p></section>
       <section class="panel" id="anuncios-publicados"><h2>Meus anúncios</h2><div id="meus"></div></section>
-      <section class="panel" id="minhas-reservas"><h2>Solicitações recebidas</h2><div id="reservas"></div></section>
+      
       <p id="feedback" role="status"></p>
     </div>
   </main>
   <script src="painel.js"></script>
-</body>
+<script src="nav.js"></script></body>
 </html>

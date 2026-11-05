@@ -51,8 +51,9 @@ formLogin.addEventListener('submit', async (evento) => {
         mensagem.className =
             'mensagem-sucesso';
 
-        window.location.href =
-            '/anuncios.html';
+        // Retorna à página que pediu login (somente caminhos internos).
+        const voltar = new URLSearchParams(location.search).get('voltar');
+        window.location.href = voltar && /^\/[^/\\]/.test(voltar) ? voltar : '/anuncios.html';
 
     } catch (erro) {
 
