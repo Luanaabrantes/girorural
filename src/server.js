@@ -31,6 +31,29 @@ const PORT = process.env.PORT || 3000;
 
 const premium = require('./premium').criarPremium();
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '1mb' }), premium.webhook);
+const locacao = require('./locacao').criarLocacao();
+const locacaoExpiryTimer = setInterval(() => locacao.expirarAprovacoes().catch(() => console.error('Falha ao expirar aprovações de locação.')), 60000);
+locacaoExpiryTimer.unref();
+/** @openapi
+ * /api/locacao/stripe/webhook:
+ *   post:
+ *     tags: [Locação]
+ *     summary: Receber eventos assinados de pagamento de locação
+ *     description: Trata sessões concluídas, pagamentos assíncronos e expiração. Validado com Stripe-Signature sobre o corpo bruto; eventos e atualizações são idempotentes e exclusivos de modo de teste.
+ *     security: []
+ *     parameters:
+ *       - in: header
+ *         name: Stripe-Signature
+ *         required: true
+ *         schema: {type: string}
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: {type: string, format: binary}
+ *     responses: {'200': {description: 'Evento processado, repetido ou ignorado'}, '400': {description: 'Assinatura inválida ou evento fora do modo de teste'}, '503': {description: 'Falha transitória; evento pode ser reenviado'}}
+ */
+app.post('/api/locacao/stripe/webhook', express.raw({ type: 'application/json', limit: '1mb' }), locacao.webhook);
 
 // Permite receber JSON
 app.use(express.json());
@@ -130,6 +153,8 @@ app.use(
     '/api/auth',
     authRoutes
 );
+
+app.use('/api/locacao', locacao.router);
 
 // Perfil privado e apresentação pública de proprietários.
 app.use('/api', require('./perfil').criarRotasPerfil());
