@@ -500,19 +500,45 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    * /api/reservas:
    *   post:
    *     tags: [Reservas]
-   *     summary: Solicitar período em anúncio ativo
+   *     summary: Solicitar locação em anúncio ativo com cálculo de preço no servidor
+   *     description: O início é inclusivo e o fim exclusivo, representando o dia da devolução. O total é a diária atual no MariaDB multiplicada por DATEDIFF(fim,inicio). Pedidos para anúncios de exemplo não são transacionais.
    *     security: [{sessao: []}]
    *     requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReservaNova'}}}}
-   *     responses: {'201': {description: Reserva solicitada}, '400': {description: Período inválido}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}, '404': {description: Anúncio indisponível}, '409': {description: Anúncios demonstrativos fictícios não aceitam reservas}}
+   *     responses: {'201': {description: 'Pedido e valor calculado'}, '200': {description: 'Pedido idêntico já existente'}, '400': {description: 'Período ou valor inválido'}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}, '404': {description: Anúncio indisponível}, '409': {description: 'Anúncio de exemplo, anúncio próprio ou período ocupado'}}
    */
   router.post('/reservas', autenticar, exigir('LOCATARIO'), executar(async (req, res) => {
     const anuncioId = id(req.body?.anuncio_id), inicio = dataISO(req.body?.inicio, 'Data inicial'), fim = dataISO(req.body?.fim, 'Data final');
-    if (fim < inicio) throw erro(400, 'A data final deve ser igual ou posterior à inicial.');
-    const [anuncios] = await db.execute("SELECT a.id,e.descricao FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo'", [anuncioId]);
-    if (!anuncios.length) throw erro(404, 'Anúncio não encontrado.');
-    if (anuncios[0].descricao?.startsWith('[DEMO FICTÍCIO]')) throw erro(409, 'Este anúncio demonstrativo não aceita reservas.');
-    const [r] = await db.execute("INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim,estado) VALUES (?,?,?,?,'solicitada')", [anuncioId, req.usuario.id, inicio, fim]);
-    await auditar(req, 'RESERVA_SOLICITADA', 'reserva', r.insertId); res.status(201).json({ id: r.insertId, estado: 'solicitada' });
+    const ms = value => Date.parse(`${value}T00:00:00.000Z`), diarias = (ms(fim) - ms(inicio)) / 86400000;
+    if (!Number.isInteger(diarias) || diarias < 1 || diarias > 90) throw erro(400, 'Informe de 1 a 90 diárias. A data final é o dia da devolução e não é cobrada como diária.');
+    const c = await db.getConnection(); let resultado, duplicada = false;
+    try {
+      await c.beginTransaction();
+      const [anuncios] = await c.execute("SELECT a.id,a.diaria,a.proprietario_id,e.descricao,CURDATE() hoje FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.estado='ativo' AND e.estado='ativo' FOR UPDATE", [anuncioId]);
+      if (!anuncios.length) throw erro(404, 'Anúncio não encontrado.');
+      const anuncio = anuncios[0];
+      if (ehDemonstrativo(anuncio.descricao)) throw erro(409, 'Este equipamento é um exemplo de catálogo e não aceita pedidos de locação.');
+      if (Number(anuncio.proprietario_id) === Number(req.usuario.id)) throw erro(409, 'Você não pode solicitar a locação do próprio anúncio.');
+      const hojeISO = anuncio.hoje instanceof Date ? anuncio.hoje.toISOString().slice(0,10) : String(anuncio.hoje).slice(0,10);
+      if (inicio < hojeISO) throw erro(400, 'A data inicial precisa ser hoje ou uma data futura.');
+      const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(String(anuncio.diaria));
+      if (!m) throw erro(400, 'O valor da diária do anúncio é inválido.');
+      const unit = Number(m[1])*100 + Number((m[2]||'').padEnd(2,'0')||0), total = unit*diarias;
+      if (!Number.isSafeInteger(total) || total < 1 || total > 99999999) throw erro(400, 'O valor total do período excede o limite aceito para pagamento.');
+      const valorTotal = `${Math.floor(total/100)}.${String(total%100).padStart(2,'0')}`;
+      await c.execute(`UPDATE reservas r SET r.estado='cancelada' WHERE r.anuncio_id=? AND r.estado='confirmada' AND r.valor_total IS NOT NULL
+        AND r.aprovacao_expira_em<=NOW() AND NOT EXISTS (SELECT 1 FROM locacao_pagamentos p WHERE p.reserva_id=r.id AND p.status IN ('checkout_aberto','pendente','pago','falho'))`, [anuncioId]);
+      const [busy] = await c.execute(`SELECT r.id FROM reservas r WHERE r.anuncio_id=? AND r.estado='confirmada' AND
+        ((r.valor_total IS NULL AND r.inicio<=? AND r.fim>=?) OR (r.valor_total IS NOT NULL AND r.inicio<? AND r.fim>?)) AND
+        (r.valor_total IS NULL OR r.aprovacao_expira_em>NOW() OR EXISTS (SELECT 1 FROM locacao_pagamentos p WHERE p.reserva_id=r.id AND p.status IN ('checkout_aberto','pendente','pago','falho')))
+        LIMIT 1 FOR UPDATE`, [anuncioId,fim,inicio,fim,inicio]);
+      if (busy.length) throw erro(409, 'O período não está disponível. Escolha outras datas.');
+      const [same] = await c.execute(`SELECT id,estado,diarias,valor_total,moeda FROM reservas WHERE anuncio_id=? AND solicitante_id=? AND inicio=? AND fim=? AND estado IN ('solicitada','confirmada') ORDER BY id DESC LIMIT 1 FOR UPDATE`, [anuncioId,req.usuario.id,inicio,fim]);
+      if (same.length) { resultado={id:same[0].id,estado:same[0].estado,diarias:same[0].diarias||diarias,valor_total:same[0].valor_total||valorTotal,moeda:same[0].moeda||'BRL'};duplicada=true; }
+      else { const [r]=await c.execute("INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim,estado,diarias,valor_total,moeda) VALUES (?,?,?,?,'solicitada',?,?,'BRL')",[anuncioId,req.usuario.id,inicio,fim,diarias,valorTotal]);resultado={id:r.insertId,estado:'solicitada',diarias,valor_total:valorTotal,moeda:'BRL'}; }
+      await c.commit();
+    } catch(e) { await c.rollback(); throw e; } finally { c.release(); }
+    if(!duplicada) await auditar(req,'RESERVA_SOLICITADA','reserva',resultado.id,{diarias:resultado.diarias,valor_total:resultado.valor_total,moeda:resultado.moeda});
+    res.status(duplicada?200:201).json(resultado);
   }));
   /** @openapi
    * /api/reservas/minhas:
@@ -523,7 +549,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Reservas próprias}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}}
    */
   router.get('/reservas/minhas', autenticar, exigir('LOCATARIO'), executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,e.nome,a.cidade,a.uf,r.inicio,r.fim,r.estado,r.criado_em FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id WHERE r.solicitante_id=? ORDER BY r.id DESC`, [req.usuario.id]);
+    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,e.nome,a.cidade,a.uf,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.estado,r.aprovacao_expira_em,r.criado_em,
+      (SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status
+      FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id WHERE r.solicitante_id=? ORDER BY r.id DESC`, [req.usuario.id]);
     res.json({ reservas: rows });
   }));
   /** @openapi
@@ -535,7 +563,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Reservas de anúncios próprios}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}}
    */
   router.get('/reservas/recebidas', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,e.nome,r.inicio,r.fim,r.estado,r.criado_em FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? ORDER BY r.id DESC`, [req.usuario.id]);
+    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,e.nome,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.estado,r.aprovacao_expira_em,r.criado_em,
+      (SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status
+      FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? ORDER BY r.id DESC`, [req.usuario.id]);
     res.json({ reservas: rows });
   }));
   /** @openapi
@@ -548,7 +578,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Dados autorizados da reserva}, '401': {description: Sessão ausente}, '404': {description: Reserva privada não encontrada}}
    */
   router.get('/reservas/:id', autenticar, executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,r.solicitante_id,r.inicio,r.fim,r.estado,r.criado_em,a.proprietario_id FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id WHERE r.id=? AND (r.solicitante_id=? OR a.proprietario_id=?)`, [id(req.params.id), req.usuario.id, req.usuario.id]);
+    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,r.solicitante_id,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.estado,r.aprovacao_expira_em,r.criado_em,a.proprietario_id,
+      (SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status
+      FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id WHERE r.id=? AND (r.solicitante_id=? OR a.proprietario_id=?)`, [id(req.params.id), req.usuario.id, req.usuario.id]);
     if (!rows.length) throw erro(404, 'Reserva não encontrada.');
     const { proprietario_id, ...reserva } = rows[0]; res.json({ reserva });
   }));
@@ -568,13 +600,18 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     const c = await db.getConnection();
     try {
       await c.beginTransaction();
-      const [rows] = await c.execute(`SELECT r.id,r.anuncio_id,r.inicio,r.fim,r.estado FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id WHERE r.id=? AND a.proprietario_id=? FOR UPDATE`, [reservaId, req.usuario.id]);
+      const [rows] = await c.execute(`SELECT r.id,r.anuncio_id,r.inicio,r.fim,r.estado,r.valor_total FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id WHERE r.id=? AND a.proprietario_id=? FOR UPDATE`, [reservaId, req.usuario.id]);
       if (!rows.length) throw erro(404, 'Reserva não encontrada.');
       if (rows[0].estado !== 'solicitada') throw erro(409, 'A reserva não está aguardando decisão.');
       if (estado === 'confirmada') {
         await c.execute('SELECT id FROM anuncios WHERE id=? FOR UPDATE', [rows[0].anuncio_id]);
-        const [overlap] = await c.execute("SELECT id FROM reservas WHERE anuncio_id=? AND estado='confirmada' AND inicio<=? AND fim>=? FOR UPDATE", [rows[0].anuncio_id, rows[0].fim, rows[0].inicio]);
+        await c.execute(`UPDATE reservas r SET r.estado='cancelada' WHERE r.anuncio_id=? AND r.estado='confirmada' AND r.valor_total IS NOT NULL AND r.aprovacao_expira_em<=NOW()
+          AND NOT EXISTS (SELECT 1 FROM locacao_pagamentos p WHERE p.reserva_id=r.id AND p.status IN ('checkout_aberto','pendente','pago','falho'))`, [rows[0].anuncio_id]);
+        const [overlap] = await c.execute(`SELECT r.id FROM reservas r WHERE r.anuncio_id=? AND r.estado='confirmada' AND r.id<>? AND
+          ((r.valor_total IS NULL AND r.inicio<=? AND r.fim>=?) OR (r.valor_total IS NOT NULL AND r.inicio<? AND r.fim>?)) AND
+          (r.valor_total IS NULL OR r.aprovacao_expira_em>NOW() OR EXISTS (SELECT 1 FROM locacao_pagamentos p WHERE p.reserva_id=r.id AND p.status IN ('checkout_aberto','pendente','pago','falho'))) FOR UPDATE`, [rows[0].anuncio_id,reservaId,rows[0].fim,rows[0].inicio,rows[0].fim,rows[0].inicio]);
         if (overlap.length) throw erro(409, 'O período já possui uma reserva confirmada.');
+        if (rows[0].valor_total) await c.execute('UPDATE reservas SET aprovacao_expira_em=DATE_ADD(NOW(),INTERVAL 24 HOUR) WHERE id=?', [reservaId]);
       }
       await c.execute('UPDATE reservas SET estado=? WHERE id=?', [estado, reservaId]); await c.commit();
     } catch (e) { await c.rollback(); throw e; } finally { c.release(); }
@@ -587,12 +624,21 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     summary: Cancelar solicitação própria
    *     security: [{sessao: []}]
    *     parameters: [{in: path, name: id, required: true, schema: {type: integer, minimum: 1}}]
-   *     responses: {'200': {description: Reserva cancelada}, '401': {description: Sessão ausente}, '404': {description: Reserva não encontrada ou não cancelável}}
+   *     responses: {'200': {description: Reserva cancelada}, '401': {description: Sessão ausente}, '404': {description: Reserva não encontrada}, '409': {description: 'Checkout/pagamento em andamento ou transição de estado não permitida'}}
    */
   router.post('/reservas/:id/cancelar', autenticar, executar(async (req, res) => {
     const reservaId = id(req.params.id);
-    const [r] = await db.execute("UPDATE reservas SET estado='cancelada' WHERE id=? AND solicitante_id=? AND estado IN ('solicitada','confirmada')", [reservaId, req.usuario.id]);
-    if (!r.affectedRows) throw erro(404, 'Reserva não encontrada.');
+    const c=await db.getConnection();
+    try{
+      await c.beginTransaction();
+      const [rows]=await c.execute('SELECT id,estado FROM reservas WHERE id=? AND solicitante_id=? FOR UPDATE',[reservaId,req.usuario.id]);
+      if(!rows.length)throw erro(404,'Reserva não encontrada.');
+      if(!['solicitada','confirmada'].includes(rows[0].estado))throw erro(409,'Esta locação não pode mais ser cancelada por este fluxo.');
+      const [payments]=await c.execute('SELECT id,status FROM locacao_pagamentos WHERE reserva_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE',[reservaId]);
+      if(['criando','checkout_aberto','pendente','falho','pago'].includes(payments[0]?.status))throw erro(409,'O checkout ou pagamento está em andamento. Aguarde o estado final antes de cancelar. Pagamentos confirmados exigem fluxo separado de cancelamento/reembolso.');
+      await c.execute("UPDATE reservas SET estado='cancelada' WHERE id=?",[reservaId]);
+      await c.commit();
+    }catch(e){await c.rollback();throw e;}finally{c.release();}
     await auditar(req, 'RESERVA_CANCELADA', 'reserva', reservaId); res.json({ atualizado: true, estado: 'cancelada' });
   }));
   router.use((e, req, res, next) => {

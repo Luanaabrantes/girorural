@@ -13,16 +13,20 @@ function formatarDiaria(value){return `${new Intl.NumberFormat('pt-BR',{style:'c
 function hoje(){const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)}
 
 async function montarReserva(anuncio,container){
-  if(anuncio.demonstrativo)return;
   let usuario=null;
   try{const response=await fetch('/api/auth/me',{cache:'no-store'});if(response.ok)usuario=(await response.json()).usuario}catch{}
-  if(!usuario){const note=h('p','notice','Entre com uma conta de locatário para solicitar um período. '),link=h('a','','Fazer login');link.href='/login.html';note.append(link);container.append(note);return}
-  if(usuario.role!=='LOCATARIO'&&usuario.role!=='usuario'){container.append(h('p','notice','A solicitação de reserva está disponível para contas de locatário.'));return}
-  const form=h('form','booking-form'),start=h('input'),end=h('input'),submit=h('button','button','Solicitar período');
+  const form=h('form','booking-form'),start=h('input'),end=h('input'),days=h('output','booking-value','—'),unit=h('output','booking-value',formatarDiaria(anuncio.diaria)),total=h('output','booking-value','—');
   start.type=end.type='date';start.required=end.required=true;start.min=end.min=hoje();
-  const first=h('label','','Data inicial'),last=h('label','','Data final');first.append(start);last.append(end);submit.type='submit';form.append(first,last,submit);
+  const first=h('label','','Data inicial'),last=h('label','','Data final'),dayLabel=h('label','','Quantidade de diárias'),unitLabel=h('label','','Valor unitário'),totalLabel=h('label','','Valor total');
+  first.append(start);last.append(end);dayLabel.append(days);unitLabel.append(unit);totalLabel.append(total);form.append(first,last,dayLabel,unitLabel,totalLabel);
+  const demo=Boolean(anuncio.demonstrativo),submit=h('button','button',demo?'Prévia de locação':'Solicitar locação');submit.type='submit';form.append(submit);
   const message=h('p','booking-message');message.setAttribute('role','status');
-  form.onsubmit=async event=>{event.preventDefault();submit.disabled=true;message.className='booking-message';message.textContent='Enviando solicitação...';try{const response=await fetch('/api/reservas',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({anuncio_id:anuncio.id,inicio:start.value,fim:end.value})}),data=await response.json();if(!response.ok)throw Error(data.mensagem||'Não foi possível solicitar a reserva.');message.classList.add('notice');message.textContent='Solicitação enviada ao proprietário. Acompanhe o pedido no seu painel.';form.reset()}catch(error){message.classList.add('error');message.textContent=error.message;submit.disabled=false}};
+  function update(){const valid=start.value&&end.value&&new Date(`${end.value}T00:00:00Z`)>new Date(`${start.value}T00:00:00Z`),count=valid?(Date.parse(`${end.value}T00:00:00Z`)-Date.parse(`${start.value}T00:00:00Z`))/86400000:0;days.textContent=count?`${count} ${count===1?'diária':'diárias'}`:'—';total.textContent=count?formatarDiaria(Number(anuncio.diaria)*count).replace(' / dia',''):'—';if(start.value){const next=new Date(`${start.value}T00:00:00Z`);next.setUTCDate(next.getUTCDate()+1);end.min=next.toISOString().slice(0,10)}}
+  start.addEventListener('change',update);end.addEventListener('change',update);
+  if(demo){message.classList.add('notice');message.textContent='Exemplo de catálogo. Esta prévia não cria pedido nem processa pagamento.'}
+  else if(!usuario){const link=h('a','','Fazer login');link.href='/login.html';message.append('Entre com uma conta de locatário para solicitar a locação. ',link)}
+  else if(usuario.role!=='LOCATARIO'&&usuario.role!=='usuario'){message.classList.add('notice');message.textContent='A solicitação de locação está disponível para contas de locatário.'}
+  form.onsubmit=async event=>{event.preventDefault();if(demo){message.textContent='Prévia calculada. Este exemplo de catálogo não cria pedido nem processa pagamento.';return}if(!usuario||!['LOCATARIO','usuario'].includes(usuario.role)){message.textContent='Entre com uma conta de locatário para solicitar a locação.';return}submit.disabled=true;message.className='booking-message';message.textContent='Enviando solicitação...';try{const response=await fetch('/api/reservas',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({anuncio_id:anuncio.id,inicio:start.value,fim:end.value})}),data=await response.json();if(!response.ok)throw Error(data.mensagem||'Não foi possível solicitar a locação.');message.classList.add('notice');message.textContent=`Solicitação enviada ao proprietário: ${data.diarias} diárias, ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(data.valor_total))}. A data final é o dia da devolução. Acompanhe em Minhas reservas.`;form.reset();update()}catch(error){message.classList.add('error');message.textContent=error.message}finally{submit.disabled=false}};
   container.append(form,message);
 }
 
@@ -40,7 +44,8 @@ async function carregar(){
     if(a.informacoes_adicionais)content.append(h('h2','','Informações úteis'),h('p','detail-copy',a.informacoes_adicionais));
     if(!a.demonstrativo){owner.append(h('p','eyebrow','PROPRIETÁRIO'),h('p','owner-name',a.proprietario?.nome||'Proprietário'));
       if(a.proprietario?.id){const profile=h('a','button small outline','Ver perfil do proprietário');profile.href=`/proprietario.html?id=${encodeURIComponent(a.proprietario.id)}`;owner.append(profile)}
-      content.append(owner);booking.append(h('h2','','Solicitar reserva'));await montarReserva(a,booking);content.append(booking)}
+      content.append(owner);booking.append(h('h2','','Solicitar locação'));await montarReserva(a,booking);content.append(booking)
+    }else{booking.append(h('h2','','Prévia de locação'));await montarReserva(a,booking);content.append(booking)}
     layout.append(content);root.replaceChildren(layout);root.hidden=false;statusEl.hidden=true;
   }catch(error){statusEl.classList.add('error');statusEl.textContent=error.message}
 }
