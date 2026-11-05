@@ -324,6 +324,7 @@
           "fim"
         ],
         "additionalProperties": false,
+        "description": "Período de locação; início inclusivo e fim exclusivo. A data fim é o dia de devolução e DATEDIFF(fim,inicio) é o número de diárias. O valor total é consultado e calculado no servidor.",
         "properties": {
           "anuncio_id": {
             "type": "integer",
@@ -335,7 +336,8 @@
           },
           "fim": {
             "type": "string",
-            "format": "date"
+            "format": "date",
+            "description": "Dia de devolução, exclusivo do cálculo de diárias."
           }
         }
       },
@@ -748,6 +750,48 @@
     }
   },
   "paths": {
+    "/api/locacao/stripe/webhook": {
+      "post": {
+        "tags": [
+          "Locação"
+        ],
+        "summary": "Receber eventos assinados de pagamento de locação",
+        "description": "Trata sessões concluídas, pagamentos assíncronos e expiração. Validado com Stripe-Signature sobre o corpo bruto; eventos e atualizações são idempotentes e exclusivos de modo de teste.",
+        "security": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Stripe-Signature",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evento processado, repetido ou ignorado"
+          },
+          "400": {
+            "description": "Assinatura inválida ou evento fora do modo de teste"
+          },
+          "503": {
+            "description": "Falha transitória; evento pode ser reenviado"
+          }
+        }
+      }
+    },
     "/live": {
       "get": {
         "tags": [
@@ -1452,6 +1496,86 @@
             }
           }
         ]
+      }
+    },
+    "/api/locacao/reservas/{id}/checkout": {
+      "post": {
+        "tags": [
+          "Locação"
+        ],
+        "summary": "Criar ou reutilizar checkout Stripe de uma locação aprovada",
+        "description": "Valor, moeda, usuário e reserva são lidos do MariaDB. O checkout aceita somente cartão e chaves Stripe de teste. O proprietário precisa aprovar antes.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "URL do Stripe Checkout em modo de teste"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer LOCATARIO"
+          },
+          "404": {
+            "description": "Reserva não encontrada ou de outra pessoa"
+          },
+          "409": {
+            "description": "Reserva não aprovada, expirada ou já paga"
+          },
+          "503": {
+            "description": "Stripe de teste indisponível"
+          }
+        }
+      }
+    },
+    "/api/locacao/reservas/{id}/pagamento": {
+      "get": {
+        "tags": [
+          "Locação"
+        ],
+        "summary": "Consultar pagamento de uma reserva própria ou recebida",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Valor e estado financeiro autorizados"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "404": {
+            "description": "Reserva privada não encontrada"
+          }
+        }
       }
     },
     "/api/auth/cadastro": {
@@ -3381,7 +3505,8 @@
         "tags": [
           "Reservas"
         ],
-        "summary": "Solicitar período em anúncio ativo",
+        "summary": "Solicitar locação em anúncio ativo com cálculo de preço no servidor",
+        "description": "O início é inclusivo e o fim exclusivo, representando o dia da devolução. O total é a diária atual no MariaDB multiplicada por DATEDIFF(fim,inicio). Pedidos para anúncios de exemplo não são transacionais.",
         "security": [
           {
             "sessao": []
@@ -3398,11 +3523,14 @@
           }
         },
         "responses": {
+          "200": {
+            "description": "Pedido idêntico já existente"
+          },
           "201": {
-            "description": "Reserva solicitada"
+            "description": "Pedido e valor calculado"
           },
           "400": {
-            "description": "Período inválido"
+            "description": "Período ou valor inválido"
           },
           "401": {
             "description": "Sessão ausente"
@@ -3414,7 +3542,7 @@
             "description": "Anúncio indisponível"
           },
           "409": {
-            "description": "Anúncios demonstrativos fictícios não aceitam reservas"
+            "description": "Anúncio de exemplo, anúncio próprio ou período ocupado"
           }
         }
       }
@@ -3584,7 +3712,10 @@
             "description": "Sessão ausente"
           },
           "404": {
-            "description": "Reserva não encontrada ou não cancelável"
+            "description": "Reserva não encontrada"
+          },
+          "409": {
+            "description": "Checkout/pagamento em andamento ou transição de estado não permitida"
           }
         }
       }

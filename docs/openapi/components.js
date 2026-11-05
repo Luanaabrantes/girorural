@@ -43,8 +43,8 @@ module.exports = {
       uf: { type: 'string', pattern: '^[A-Za-z]{2}$' }, condicoes: { type: 'string', maxLength: 5000, nullable: true },
       estado: { type: 'string', enum: ['rascunho','ativo','inativo'] }
     } },
-    ReservaNova: { type: 'object', required: ['anuncio_id','inicio','fim'], additionalProperties: false, properties: {
-      anuncio_id: { type: 'integer', minimum: 1 }, inicio: { type: 'string', format: 'date' }, fim: { type: 'string', format: 'date' }
+    ReservaNova: { type: 'object', required: ['anuncio_id','inicio','fim'], additionalProperties: false, description: 'Período de locação; início inclusivo e fim exclusivo. A data fim é o dia de devolução e DATEDIFF(fim,inicio) é o número de diárias. O valor total é consultado e calculado no servidor.', properties: {
+      anuncio_id: { type: 'integer', minimum: 1 }, inicio: { type: 'string', format: 'date' }, fim: { type: 'string', format: 'date', description: 'Dia de devolução, exclusivo do cálculo de diárias.' }
     } },
     ProprietarioPublico: { type: 'object', required: ['nome'], properties: {
       id: { type: 'integer', minimum: 1, description: 'Identificador usado para abrir o perfil público; nenhum dado privado é exposto.' },

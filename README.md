@@ -1,6 +1,6 @@
 # GiroRural
 
-Plataforma web para aproximar produtores rurais que oferecem máquinas e implementos daqueles que precisam alugá-los. O GiroRural apresenta anúncios e organiza pedidos de reserva; pagamento, disponibilidade e entrega são combinados diretamente entre as partes.
+Plataforma web para aproximar produtores rurais que oferecem máquinas e implementos daqueles que precisam alugá-los. O GiroRural apresenta anúncios, organiza pedidos de locação e, nos anúncios reais aprovados, recebe o pagamento de teste pelo Stripe Checkout.
 
 Esta branch prepara a Atividade 10 de Computação em Nuvem. **O sistema não está publicado pelo GiroRural nesta entrega.**
 
@@ -11,11 +11,12 @@ Esta branch prepara a Atividade 10 de Computação em Nuvem. **O sistema não es
 - Cadastro/login. Cadastro público sempre recebe `LOCATARIO`; enviar `role=ADMIN` ou `role=PROPRIETARIO` no corpo não concede privilégio.
 - Meu perfil: edição de nome, nome de exibição, telefone, cidade, UF e descrição; upload, substituição e remoção da foto no MinIO. E-mail não é editável por esse fluxo.
 - Proprietários cadastram e editam equipamentos/anúncios, alteram seu estado, gerenciam fotos e consultam/aprovam/recusam solicitações.
-- Locatários solicitam, consultam e cancelam reservas próprias. Períodos confirmados sobrepostos são verificados no MariaDB com bloqueio transacional.
+- Locatários solicitam, consultam e cancelam pedidos próprios antes da aprovação. O sistema calcula as diárias e o total no servidor; proprietários aprovam/recusam e locatários pagam locações aprovadas no Stripe Checkout de teste.
+- Checkout de assinatura Pro (`mode=subscription`) e checkout de locação (`mode=payment`) são rotas, metadados, eventos e estados financeiros separados. O redirecionamento do navegador nunca confirma pagamento; somente webhook assinado em modo de teste.
 - `ADMIN`, `PROPRIETARIO` e `LOCATARIO` são papéis separados. A API aplica propriedade no backend; acesso sem sessão retorna 401, papel inadequado 403 e recurso privado de outra conta 404.
 - Eventos de negócio são enviados ao `log-service` e persistidos em Redis Streams. Administradores consultam os eventos pelo painel/API administrativos.
 - Catálogo demonstrativo de 12 anúncios fictícios. O seed é manual, reexecutável e destinado a desenvolvimento; anúncios demonstrativos não aceitam reserva nem edição.
-- Plano gratuito limita a 2 anúncios ativos; plano Pro permite até 20 por assinatura Stripe em modo de teste. Stripe não processa o pagamento da locação.
+- Plano gratuito limita a 2 anúncios ativos; plano Pro permite até 20 por assinatura Stripe em modo de teste. Checkout de locação não inclui Stripe Connect, repasse ao proprietário, cancelamento após pagamento ou reembolso automático.
 
 ## Estado da revisão — 04/11/2026
 
@@ -39,6 +40,8 @@ O domínio principal tem três tabelas, todas InnoDB e ligadas à tabela existen
 | `anuncios` | Equipamento, proprietário, diária, cidade/UF, condições e estado. |
 | `reservas` | Anúncio, solicitante, período, estado e datas. |
 
+`locacao_pagamentos` mantém tentativas de Checkout, valor/moeda, PaymentIntent e estado financeiro; `stripe_locacao_eventos` guarda apenas IDs/tipos para idempotência. Não armazena dados de cartão. O fim do período é exclusivo: representa o dia da devolução e não é cobrado; `DATEDIFF(fim,inicio)` produz a quantidade de diárias.
+
 `anuncio_imagens` acrescenta a galeria na Etapa 3, preservando `equipamentos.imagem_chave` como referência compatível com anúncio de foto única. `perfis` pertence à funcionalidade anterior de perfil.
 
 ### Ordem para uma instalação do zero
@@ -53,6 +56,7 @@ Primeiro confirme que a tabela `usuarios` e sua chave `id` já existem. O DDL or
 6. `database/migracao-perfil-usuarios.sql` — acrescenta campos de apresentação/contato à tabela existente `perfis`.
 7. `database/migracao-anuncios-informacoes.sql` — acrescenta o campo opcional de informações por categoria.
 8. `database/migracao-anuncios-galeria.sql` — cria `anuncio_imagens`.
+9. `database/migracao-locacao-stripe.sql` — acrescenta os snapshots financeiros das reservas e cria as tabelas de tentativa de pagamento e idempotência de webhook.
 
 As migrações novas são aditivas, mas não há tabela central de histórico de migrações. Antes de cada execução, verifique a estrutura com `SHOW CREATE TABLE` e compare-a com a versão esperada. `IF NOT EXISTS` torna partes reexecutáveis; não corrige uma tabela existente com estrutura divergente. `scripts/migrar-rural.js` aplica apenas as migrações 4 e 5 e recusa bancos externos: ele é uma ferramenta local, **não** um executor de produção. No Compose, os mounts de inicialização do MariaDB só rodam na criação de um volume vazio.
 
@@ -82,6 +86,7 @@ As migrações novas são aditivas, mas não há tabela central de histórico de
 | Fotos | `POST /api/anuncios/:id/fotos`, `GET /api/anuncios/:id/fotos`, `GET/DELETE /api/anuncios/:id/fotos/:fotoId`, `PATCH /api/anuncios/:id/fotos/:fotoId/principal` | Leitura pública do ativo; alteração pelo dono. JPEG/PNG/WebP, até 5 MB por arquivo. |
 | Reservas | `POST /api/reservas`, `GET /api/reservas/minhas`, `GET /api/reservas/:id`, `POST /api/reservas/:id/cancelar` | `LOCATARIO`; consulta restrita às partes autorizadas. |
 | Reservas do proprietário | `GET /api/reservas/recebidas`, `PATCH /api/reservas/:id` | `PROPRIETARIO`. |
+| Pagamento de locação | `POST /api/locacao/reservas/:id/checkout`, `GET /api/locacao/reservas/:id/pagamento`, `POST /api/locacao/stripe/webhook` | Checkout `payment` de teste; pagamento só confirma por webhook assinado. Aprovação sem Checkout expira em 24 h; Checkout aberto fica retido até a expiração Stripe (35 min configurados). |
 | Perfil | `GET/PATCH /api/perfil/me`, `POST/DELETE /api/perfil/me/foto`, `GET /api/proprietarios/:id` | Perfil próprio autenticado; perfil público não devolve e-mail/telefone privado. |
 | Administração | `GET /api/admin/usuarios`, `PATCH /api/admin/usuarios/:id/role`, `GET /api/logs` | `ADMIN`. |
 
@@ -100,6 +105,14 @@ npm run docs:validate
 ```
 
 O laboratório MariaDB/Redis/MinIO é uma validação separada; testes unitários/mocks não a substituem. Status atual da publicação: pendente. A existência de health checks locais não equivale a deploy.
+
+### Teste manual do Stripe de locação
+
+1. Configure apenas uma chave `sk_test_` local em `STRIPE_SECRET_KEY`, `APP_BASE_URL=http://localhost:3000` e um segredo de webhook independente em `STRIPE_LOCACAO_WEBHOOK_SECRET`. Preserve `STRIPE_WEBHOOK_SECRET` para o endpoint de assinaturas Pro.
+2. Aponte um endpoint de webhook Stripe de teste para `http://localhost:3000/api/locacao/stripe/webhook` e assine pelo menos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` e `checkout.session.expired`. Stripe Checkout e os webhooks precisam de credenciais autorizadas da própria conta de teste; não copie os exemplos publicados de chaves.
+3. Com contas locais separadas de proprietário e locatário, use um anúncio real local (não o catálogo de exemplos). O proprietário aprova o pedido; o locatário abre “Minhas reservas” e seleciona “Pagar com Stripe”.
+4. Use os dados de cartão de teste que a documentação oficial Stripe indica para sua conta. Stripe informa que testes automatizados não devem substituir a verificação manual da interface Checkout e oferece cartões de teste para simular resultados; consulte [testes automatizados Stripe](https://docs.stripe.com/automated-testing). A página de retorno consulta o backend e não é evidência de pagamento.
+5. Verifique o evento no Stripe em modo de teste, o webhook validado, o estado financeiro em Minhas reservas e a trilha de auditoria. A aplicação não transfere fundos: uma futura liquidação ao proprietário exige desenho separado de Stripe Connect, obrigações financeiras, política de cancelamento e reembolso.
 
 ## Portainer — configuração encontrada e preparação
 
