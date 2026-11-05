@@ -273,7 +273,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     if(maximo!==null){filtros.push('a.diaria <= ?');params.push(maximo.toFixed(2))}
     const ordenar=req.query.ordenar||'recentes',ordens={'recentes':'a.criado_em DESC,a.id DESC','menor-preco':'a.diaria ASC,a.id DESC','maior-preco':'a.diaria DESC,a.id DESC'};
     if(!Object.hasOwn(ordens,ordenar))throw erro(400,'Ordenação inválida.');
-    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id LEFT JOIN perfis p ON p.usuario_id=u.id WHERE ${filtros.join(' AND ')} ORDER BY ${ordens[ordenar]} LIMIT ? OFFSET ?`, [...params, limite, (pagina - 1) * limite]);
+    const [rows] = await db.execute(`SELECT ${fields} FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id LEFT JOIN perfis p ON p.usuario_id=u.id WHERE ${filtros.join(' AND ')} ORDER BY ${ordens[ordenar]} LIMIT ${limite} OFFSET ${(pagina - 1) * limite}`, params); // inteiros já validados; MySQL 8 recusa LIMIT ? em prepared statements
     res.json({ pagina, limite, anuncios: await carregarFotosPublicas(rows) });
   }));
 
