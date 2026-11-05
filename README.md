@@ -26,6 +26,18 @@ Na última validação integrada local, a stack isolada ficou saudável; `/healt
 
 `npm test` e OpenAPI são verificações automatizadas; a validação de interface visual por automação de navegador não foi concluída nesta revisão. A ferramenta de UI não conseguiu determinar com segurança o URL da janela. Os passos manuais e as evidências restantes estão em [Evidências da Atividade 10](docs/evidencias/atividade-10/README.md).
 
+## Evolução para produto (atividade 10)
+
+Fluxo central completo e testado ponta a ponta em banco MariaDB local (38 verificações via API, além de `npm test`):
+
+- **Papéis:** a conta nasce `LOCATARIO`. Em `/anunciante.html` a própria pessoa habilita o modo anunciante (`POST /api/auth/anunciante`) após aceitar os termos e completar telefone, cidade e UF; vira `PROPRIETARIO` sem intervenção do admin. O proprietário continua podendo alugar equipamentos de terceiros, nunca o próprio.
+- **Reserva:** observação opcional ao proprietário; recusa com motivo; `POST /api/reservas/:id/concluir` após pagamento confirmado; `/reserva.html?id=` mostra linha do tempo, resumo, ações por papel e libera telefone/e-mail das partes somente depois da aprovação.
+- **Administração (`/admin.html`):** indicadores (`GET /api/admin/resumo`), moderação de anúncios com motivo (`GET /api/admin/anuncios`, `PATCH /api/admin/anuncios/:id/moderacao`), consulta de reservas (`GET /api/admin/reservas`), usuários e auditoria com alerta de contas com várias ações negadas. Anúncio suspenso sai do catálogo e o dono não consegue reativá-lo até a liberação.
+- **Interface:** `public/tema.css` aplica a identidade do design (Inter, verde #1F6B3A, amarelo-colheita, selos de status com texto, foco visível) e `public/nav.js` monta o cabeçalho conforme o papel, com menu móvel.
+- **Migração:** `database/migracao-girorural-produto.sql` (aditiva, reexecutável), já incluída no Compose local como `11-girorural-produto.sql`. Em bancos existentes, aplique-a manualmente seguindo o procedimento seguro abaixo.
+
+Pagamento: com `STRIPE_SECRET_KEY` de teste e `STRIPE_LOCACAO_WEBHOOK_SECRET` configurados, o botão "Pagar" abre o Checkout de teste (cartão 4242 4242 4242 4242). Sem as chaves, a API responde 503 com orientação.
+
 ## Arquitetura
 
 O diagrama atualizado está em [docs/arquitetura-girorural.md](docs/arquitetura-girorural.md). A API Express também serve o frontend estático. A stack Portainer usa MariaDB externo; MinIO e Redis têm volumes persistentes. O nome de rede `catalogo-network` foi conservado no template para compatibilidade com a stack antiga; sua associação real no servidor ainda precisa ser conferida antes de redeploy.

@@ -37,7 +37,7 @@ async function carregarVisao() {
     stat('Pagamentos (teste)', moeda(r.pagamentos.valor_pago), `${r.pagamentos.pagos} locações pagas`));
   const total = Object.values(r.reservas).reduce((a, b) => a + b, 0) || 1;
   $('#porEstado').replaceChildren(...Object.entries(r.reservas).map(([k, v]) => {
-    const linha = el('div', 'resumo-linha'); const rot = el('span', `badge ${k}`, ROT_RES[k]);
+    const linha = el('div', 'resumo-linha'); const rot = el('span', `badge ${k}`, ROT_RES[k]); rot.style.minWidth = '180px';
     const barra = el('div'); barra.style.cssText = 'flex:1;height:8px;background:#F1EFEA;border-radius:4px;align-self:center;margin:0 12px;overflow:hidden';
     const fill = el('div'); fill.style.cssText = `height:100%;width:${Math.round(v / total * 100)}%;background:var(--gr-verde)`; barra.append(fill);
     linha.append(rot, barra, el('strong', '', String(v))); return linha;

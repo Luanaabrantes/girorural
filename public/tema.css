@@ -20,9 +20,9 @@ a{color:var(--gr-verde)}a:hover{color:var(--gr-verde-hover)}
 
 /* Cabeçalho */
 .top{height:72px;background:var(--gr-sup);border-bottom:1px solid var(--gr-linha);position:sticky;top:0;z-index:20;gap:16px}
-.brand{font-weight:800;font-size:22px;letter-spacing:-.03em;color:var(--gr-verde);display:inline-flex;align-items:center;gap:8px}
+.brand{font-weight:800;font-size:22px;letter-spacing:-.03em;color:var(--gr-verde);display:inline-flex;align-items:center}
 .brand span{color:var(--gr-terra)}
-.brand::before{content:"";width:28px;height:28px;border-radius:8px;background:var(--gr-verde) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2B705' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 20h10M12 20v-8M12 12c0-4 3-7 8-7 0 5-3 8-8 7zM12 14c0-3-2-5-6-5 0 4 2 6 6 5z'/%3E%3C/svg%3E") center/18px no-repeat}
+.brand::before{content:"";margin-right:9px;width:28px;height:28px;border-radius:8px;background:var(--gr-verde) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2B705' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 20h10M12 20v-8M12 12c0-4 3-7 8-7 0 5-3 8-8 7zM12 14c0-3-2-5-6-5 0 4 2 6 6 5z'/%3E%3C/svg%3E") center/18px no-repeat}
 .top nav{gap:4px}
 .top nav a{color:var(--gr-texto);font-size:15px;font-weight:500;padding:10px 12px;border-radius:8px;min-height:44px;display:inline-flex;align-items:center}
 .top nav a:hover{background:var(--gr-verde-claro);color:var(--gr-verde)}
@@ -74,7 +74,7 @@ footer a{color:#fff}
 
 /* Abas */
 .tabs{display:flex;gap:4px;border-bottom:1px solid var(--gr-linha);margin:20px 0;overflow-x:auto}
-.tabs button,.tabs a{background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;min-height:44px;font:600 15px Inter,sans-serif;color:var(--gr-cinza);cursor:pointer;white-space:nowrap}
+.tabs button,.tabs a{text-decoration:none;background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;min-height:44px;font:600 15px Inter,sans-serif;color:var(--gr-cinza);cursor:pointer;white-space:nowrap}
 .tabs button[aria-selected="true"],.tabs a[aria-current="page"]{color:var(--gr-verde);border-bottom-color:var(--gr-verde)}
 .tabs .count{margin-left:6px;background:var(--gr-amarelo);color:var(--gr-texto);border-radius:999px;padding:1px 7px;font-size:12px}
 
@@ -139,3 +139,4 @@ table.tabela{width:100%;border-collapse:collapse;font-size:14px}
 }
 .back-link{display:inline-flex;align-items:center;min-height:44px;color:var(--gr-verde);text-decoration:none;font-weight:600;font-size:15px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.reservation-row{align-items:center;gap:14px;flex-wrap:wrap}.reservation-info{display:flex;flex-direction:column;gap:2px;flex:1 1 320px;min-width:0}.reservation-info>span{color:var(--gr-cinza);font-size:14px}
