@@ -711,4 +711,46 @@ router.post('/redefinir-senha', async (req, res) => {
     }
 });
 
+/**
+ * @openapi
+ * /api/auth/anunciante:
+ *   post:
+ *     tags:
+ *       - Autenticação
+ *     summary: Habilitar modo anunciante
+ *     description: >-
+ *       Transforma a própria conta LOCATARIO em PROPRIETARIO após aceite dos termos e com telefone, cidade e UF no
+ *       perfil. O proprietário continua podendo alugar equipamentos. O papel nunca é enviado pelo navegador.
+ *     operationId: post_api_auth_anunciante
+ *     security:
+ *       - sessao: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: {type: object, required: [aceite_termos], properties: {aceite_termos: {type: boolean, enum: [true]}}}
+ *     responses:
+ *       '200': {description: Modo anunciante habilitado ou já ativo}
+ *       '400': {description: Termos não aceitos}
+ *       '401': {description: Sessão ausente ou inválida}
+ *       '403': {description: Conta administrativa}
+ *       '409': {description: Perfil incompleto}
+ *       '503': {description: Serviço de autenticação indisponível}
+ */
+router.post('/anunciante', verificarAutenticacao, async (req, res) => {
+    try {
+        const resposta = await fetch(`${process.env.AUTH_SERVICE_URL}/auth/me/anunciante`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${req.cookies.token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ aceite_termos: req.body?.aceite_termos === true }),
+            signal: AbortSignal.timeout(3000)
+        });
+        const dados = await resposta.json();
+        return res.status(resposta.status).json(dados);
+    } catch {
+        console.error('Falha ao habilitar modo anunciante no auth-service.');
+        return res.status(503).json({ mensagem: 'Serviço de autenticação indisponível.' });
+    }
+});
+
 module.exports = router;

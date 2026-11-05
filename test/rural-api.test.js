@@ -53,7 +53,7 @@ function bancoControlado() {
     if (sql.startsWith('INSERT INTO anuncios')) { const a = { id: nextAnuncio++, equipamento_id: p[0], proprietario_id: p[1], diaria: p[2], cidade: p[3], uf: p[4], condicoes: p[5], estado: p[6] }; anuncios.push(a); return [{ insertId: a.id, affectedRows: 1 }]; }
     if (sql.startsWith('SELECT id,estado FROM anuncios WHERE id=? AND proprietario_id=?')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1]))];
     if (sql.includes('SELECT a.id,e.descricao FROM anuncios a JOIN equipamentos e') && sql.includes('FOR UPDATE')) return [anuncios.filter(a => a.id===Number(p[0])&&a.proprietario_id===Number(p[1])).map(a=>({id:a.id,descricao:equipamentos.find(e=>e.id===a.equipamento_id)?.descricao}))];
-    if (sql.includes('SELECT a.id,a.estado,e.estado equipamento_estado')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1])).map(a => ({ id: a.id, estado: a.estado, equipamento_estado: equipamentos.find(e => e.id === a.equipamento_id)?.estado }))];
+    if (sql.includes('SELECT a.id,a.estado,a.moderacao,e.estado equipamento_estado')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1])).map(a => ({ id: a.id, estado: a.estado, moderacao: a.moderacao || 'liberado', equipamento_estado: equipamentos.find(e => e.id === a.equipamento_id)?.estado }))];
     if (sql.startsWith('SELECT id FROM anuncios WHERE id=? AND proprietario_id=?')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1]))];
     if (sql.startsWith('UPDATE anuncios SET')) { const id = Number(p.at(-2)), owner = Number(p.at(-1)), a = anuncios.find(x => x.id === id && x.proprietario_id === owner); if (!a) return [{ affectedRows: 0 }]; const cols = sql.match(/SET (.*?) WHERE/)[1].split(','); cols.forEach((col, i) => { a[col.split('=')[0]] = p[i]; }); return [{ affectedRows: 1 }]; }
     if (sql.startsWith('SELECT id FROM anuncios WHERE id=? AND estado=')) return [anuncios.filter(a => a.id === Number(p[0]) && a.estado === 'ativo')];
@@ -68,7 +68,7 @@ function bancoControlado() {
     if (sql.startsWith('SELECT r.id,r.anuncio_id,r.inicio,r.fim,r.estado,r.valor_total FROM reservas')) { const r=reservas.find(x=>x.id===Number(p[0])&&anuncios.find(a=>a.id===x.anuncio_id)?.proprietario_id===Number(p[1]));return [r?[{...r}]:[]]; }
     if (sql.startsWith('SELECT id FROM anuncios WHERE id=? FOR UPDATE')) return [anuncios.filter(a=>a.id===Number(p[0]))];
     if (sql.startsWith('SELECT r.id FROM reservas r WHERE r.anuncio_id=')) return [[]];
-    if (sql.startsWith('UPDATE reservas SET estado=? WHERE id=?')) { const r=reservas.find(x=>x.id===Number(p[1]));if(r)r.estado=p[0];return [{affectedRows:r?1:0}]; }
+    if (sql.startsWith('UPDATE reservas SET estado=?,motivo_recusa=?,decidido_em=NOW() WHERE id=?')) { const r=reservas.find(x=>x.id===Number(p[2]));if(r)r.motivo_recusa=p[1];if(r)r.estado=p[0];return [{affectedRows:r?1:0}]; }
     if (sql.includes('SELECT r.id,r.anuncio_id,e.nome')) return [reservas.filter(r => anuncios.find(a => a.id === r.anuncio_id)?.proprietario_id === Number(p[0])).map(r => ({ ...r, nome: equipamentos.find(e => e.id === anuncios.find(a => a.id === r.anuncio_id)?.equipamento_id)?.nome }))];
     if (sql.includes('WHERE r.solicitante_id=?')) return [reservas.filter(r => r.solicitante_id === Number(p[0]))];
     throw new Error(`SQL de teste sem implementação: ${sql}`);
@@ -127,7 +127,8 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
   });
   await t.test('locatário cria e consulta somente a própria reserva, sem user_id enviado pelo cliente', async () => {
     const start=new Date();start.setDate(start.getDate()+5);const end=new Date(start);end.setDate(end.getDate()+2);const iso=d=>d.toISOString().slice(0,10),period={anuncio_id:100,inicio:iso(start),fim:iso(end)};
-    assert.equal((await request('/api/reservas', 'donoA', 'POST', period)).status, 403);
+    // Proprietário também pode alugar, mas nunca o próprio anúncio.
+    assert.equal((await request('/api/reservas', 'donoA', 'POST', period)).status, 409);
     const r = await request('/api/reservas', 'locA', 'POST', { ...period, solicitante_id: 4 });
     assert.equal(r.status, 201); assert.equal(reservas[0].solicitante_id, 3);
     assert.equal(r.body.diarias,2);assert.equal(r.body.valor_total,'200.00');

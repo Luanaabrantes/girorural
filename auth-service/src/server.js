@@ -65,6 +65,7 @@ app.get('/health', readiness('auth-service', {
 
 app.use('/auth', authRoutes);
 app.use('/auth/admin', adminRoutes);
+app.use('/auth', require('./anunciante').criarRotasAnunciante());
 app.use('/auth', recuperacaoSenhaRoutes);
 
 app.listen(PORT, '0.0.0.0', () => {

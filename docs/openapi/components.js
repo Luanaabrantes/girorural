@@ -44,7 +44,7 @@ module.exports = {
       estado: { type: 'string', enum: ['rascunho','ativo','inativo'] }
     } },
     ReservaNova: { type: 'object', required: ['anuncio_id','inicio','fim'], additionalProperties: false, description: 'Período de locação; início inclusivo e fim exclusivo. A data fim é o dia de devolução e DATEDIFF(fim,inicio) é o número de diárias. O valor total é consultado e calculado no servidor.', properties: {
-      anuncio_id: { type: 'integer', minimum: 1 }, inicio: { type: 'string', format: 'date' }, fim: { type: 'string', format: 'date', description: 'Dia de devolução, exclusivo do cálculo de diárias.' }
+      anuncio_id: { type: 'integer', minimum: 1 }, inicio: { type: 'string', format: 'date' }, fim: { type: 'string', format: 'date', description: 'Dia de devolução, exclusivo do cálculo de diárias.' }, observacao: { type: 'string', maxLength: 1000, description: 'Mensagem opcional ao proprietário (finalidade, entrega, operador).' }
     } },
     ProprietarioPublico: { type: 'object', required: ['nome'], properties: {
       id: { type: 'integer', minimum: 1, description: 'Identificador usado para abrir o perfil público; nenhum dado privado é exposto.' },
@@ -84,7 +84,7 @@ module.exports = {
       id: { oneOf: [{type: 'integer', minimum: 1}, {type: 'string', enum: ['legacy']}] },
       foto_url: { type: 'string' }, principal: { type: 'boolean' }
     } },
-    DecisaoReserva: { type: 'object', required: ['estado'], additionalProperties: false, properties: { estado: { type: 'string', enum: ['confirmada','recusada'] } } },
+    DecisaoReserva: { type: 'object', required: ['estado'], additionalProperties: false, properties: { estado: { type: 'string', enum: ['confirmada','recusada'] }, motivo: { type: 'string', maxLength: 500 } } },
     Evento: { type: 'object', required: ['id','usuario_id','acao','timestamp'], properties: {
       id: { type: 'string' }, usuario_id: { type: 'string' }, acao: { type: 'string' },
       timestamp: { type: 'string', format: 'date-time' }, ip: { type: 'string' }, detalhes: { type: 'object', additionalProperties: true }

@@ -286,9 +286,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Anúncios da sessão}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}}
    */
   router.get('/anuncios/meus', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT ${fields},a.estado,a.equipamento_id FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id LEFT JOIN perfis p ON p.usuario_id=u.id WHERE a.proprietario_id=? ORDER BY a.id DESC`, [req.usuario.id]);
+    const [rows] = await db.execute(`SELECT ${fields},a.estado,a.equipamento_id,a.moderacao,a.moderacao_motivo FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=a.proprietario_id LEFT JOIN perfis p ON p.usuario_id=u.id WHERE a.proprietario_id=? ORDER BY a.id DESC`, [req.usuario.id]);
     const list = await carregarFotosPublicas(rows);
-    res.json({ anuncios: list.map((item, index) => ({ ...item, estado: rows[index].estado, equipamento_id: rows[index].equipamento_id })) });
+    res.json({ anuncios: list.map((item, index) => ({ ...item, estado: rows[index].estado, equipamento_id: rows[index].equipamento_id, moderacao: rows[index].moderacao, moderacao_motivo: rows[index].moderacao_motivo })) });
   }));
 
   /** @openapi
@@ -456,10 +456,11 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
       await c.beginTransaction();
       if (b.estado === 'ativo') {
         await c.execute('SELECT id FROM usuarios WHERE id=? FOR UPDATE', [req.usuario.id]);
-        const [own] = await c.execute('SELECT a.id,a.estado,e.estado equipamento_estado,e.descricao FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.proprietario_id=? FOR UPDATE', [anuncioId, req.usuario.id]);
+        const [own] = await c.execute('SELECT a.id,a.estado,a.moderacao,e.estado equipamento_estado,e.descricao FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.proprietario_id=? FOR UPDATE', [anuncioId, req.usuario.id]);
         if (!own.length) throw erro(404, 'Anúncio não encontrado.');
         if (ehDemonstrativo(own[0].descricao)) throw erro(409, 'Anúncios demonstrativos não podem ser alterados.');
         if (own[0].equipamento_estado !== 'ativo') throw erro(409, 'Não é possível ativar anúncio de equipamento inativo.');
+        if (own[0].moderacao === 'suspenso') throw erro(409, 'Anúncio suspenso pela moderação. Ajuste o conteúdo e fale com o suporte para liberá-lo.');
         if (own[0].estado !== 'ativo') {
           const max = await limiteAtivos(c, req.usuario.id);
           const [counts] = await c.execute("SELECT COUNT(*) total FROM anuncios WHERE proprietario_id=? AND estado='ativo'", [req.usuario.id]);
@@ -506,8 +507,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/ReservaNova'}}}}
    *     responses: {'201': {description: 'Pedido e valor calculado'}, '200': {description: 'Pedido idêntico já existente'}, '400': {description: 'Período ou valor inválido'}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}, '404': {description: Anúncio indisponível}, '409': {description: 'Anúncio de exemplo, anúncio próprio ou período ocupado'}}
    */
-  router.post('/reservas', autenticar, exigir('LOCATARIO'), executar(async (req, res) => {
+  router.post('/reservas', autenticar, exigir('LOCATARIO', 'PROPRIETARIO'), executar(async (req, res) => {
     const anuncioId = id(req.body?.anuncio_id), inicio = dataISO(req.body?.inicio, 'Data inicial'), fim = dataISO(req.body?.fim, 'Data final');
+    const observacao = req.body?.observacao == null || req.body.observacao === '' ? null : texto(req.body.observacao, 'Observação', 1000, false);
     const ms = value => Date.parse(`${value}T00:00:00.000Z`), diarias = (ms(fim) - ms(inicio)) / 86400000;
     if (!Number.isInteger(diarias) || diarias < 1 || diarias > 90) throw erro(400, 'Informe de 1 a 90 diárias. A data final é o dia da devolução e não é cobrada como diária.');
     const c = await db.getConnection(); let resultado, duplicada = false;
@@ -534,7 +536,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
       if (busy.length) throw erro(409, 'O período não está disponível. Escolha outras datas.');
       const [same] = await c.execute(`SELECT id,estado,diarias,valor_total,moeda FROM reservas WHERE anuncio_id=? AND solicitante_id=? AND inicio=? AND fim=? AND estado IN ('solicitada','confirmada') ORDER BY id DESC LIMIT 1 FOR UPDATE`, [anuncioId,req.usuario.id,inicio,fim]);
       if (same.length) { resultado={id:same[0].id,estado:same[0].estado,diarias:same[0].diarias||diarias,valor_total:same[0].valor_total||valorTotal,moeda:same[0].moeda||'BRL'};duplicada=true; }
-      else { const [r]=await c.execute("INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim,estado,diarias,valor_total,moeda) VALUES (?,?,?,?,'solicitada',?,?,'BRL')",[anuncioId,req.usuario.id,inicio,fim,diarias,valorTotal]);resultado={id:r.insertId,estado:'solicitada',diarias,valor_total:valorTotal,moeda:'BRL'}; }
+      else { const [r]=await c.execute("INSERT INTO reservas (anuncio_id,solicitante_id,inicio,fim,estado,diarias,valor_total,moeda,observacao) VALUES (?,?,?,?,'solicitada',?,?,'BRL',?)",[anuncioId,req.usuario.id,inicio,fim,diarias,valorTotal,observacao]);resultado={id:r.insertId,estado:'solicitada',diarias,valor_total:valorTotal,moeda:'BRL'}; }
       await c.commit();
     } catch(e) { await c.rollback(); throw e; } finally { c.release(); }
     if(!duplicada) await auditar(req,'RESERVA_SOLICITADA','reserva',resultado.id,{diarias:resultado.diarias,valor_total:resultado.valor_total,moeda:resultado.moeda});
@@ -548,10 +550,10 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     security: [{sessao: []}]
    *     responses: {'200': {description: Reservas próprias}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}}
    */
-  router.get('/reservas/minhas', autenticar, exigir('LOCATARIO'), executar(async (req, res) => {
+  router.get('/reservas/minhas', autenticar, exigir('LOCATARIO', 'PROPRIETARIO'), executar(async (req, res) => {
     const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,e.nome,a.cidade,a.uf,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.estado,r.aprovacao_expira_em,r.criado_em,
       (SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status
-      FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id WHERE r.solicitante_id=? ORDER BY r.id DESC`, [req.usuario.id]);
+      ,r.motivo_recusa FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id WHERE r.solicitante_id=? ORDER BY r.id DESC`, [req.usuario.id]);
     res.json({ reservas: rows });
   }));
   /** @openapi
@@ -565,7 +567,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
   router.get('/reservas/recebidas', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
     const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,e.nome,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.estado,r.aprovacao_expira_em,r.criado_em,
       (SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status
-      FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? ORDER BY r.id DESC`, [req.usuario.id]);
+      ,r.observacao,r.motivo_recusa,COALESCE(NULLIF(pf.nome_exibicao,''),u.nome) solicitante_nome,pf.cidade solicitante_cidade,pf.uf solicitante_uf FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id JOIN usuarios u ON u.id=r.solicitante_id LEFT JOIN perfis pf ON pf.usuario_id=r.solicitante_id WHERE a.proprietario_id=? ORDER BY r.id DESC`, [req.usuario.id]);
     res.json({ reservas: rows });
   }));
   /** @openapi
@@ -578,17 +580,35 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     responses: {'200': {description: Dados autorizados da reserva}, '401': {description: Sessão ausente}, '404': {description: Reserva privada não encontrada}}
    */
   router.get('/reservas/:id', autenticar, executar(async (req, res) => {
-    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,r.solicitante_id,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.estado,r.aprovacao_expira_em,r.criado_em,a.proprietario_id,
+    const [rows] = await db.execute(`SELECT r.id,r.anuncio_id,r.solicitante_id,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.estado,r.aprovacao_expira_em,r.criado_em,r.atualizado_em,
+      r.observacao,r.motivo_recusa,r.decidido_em,a.proprietario_id,a.cidade,a.uf,a.diaria,a.condicoes,e.nome,e.categoria,e.marca,e.modelo,e.imagem_chave,e.descricao,
+      COALESCE(NULLIF(pp.nome_exibicao,''),up.nome) proprietario_nome,up.email proprietario_email,pp.telefone proprietario_telefone,
+      COALESCE(NULLIF(ps.nome_exibicao,''),us.nome) solicitante_nome,us.email solicitante_email,ps.telefone solicitante_telefone,ps.cidade solicitante_cidade,ps.uf solicitante_uf,
       (SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status
-      FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id WHERE r.id=? AND (r.solicitante_id=? OR a.proprietario_id=?)`, [id(req.params.id), req.usuario.id, req.usuario.id]);
+      FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id JOIN equipamentos e ON e.id=a.equipamento_id
+      JOIN usuarios up ON up.id=a.proprietario_id LEFT JOIN perfis pp ON pp.usuario_id=a.proprietario_id
+      JOIN usuarios us ON us.id=r.solicitante_id LEFT JOIN perfis ps ON ps.usuario_id=r.solicitante_id
+      WHERE r.id=? AND (r.solicitante_id=? OR a.proprietario_id=?)`, [id(req.params.id), req.usuario.id, req.usuario.id]);
     if (!rows.length) throw erro(404, 'Reserva não encontrada.');
-    const { proprietario_id, ...reserva } = rows[0]; res.json({ reserva });
+    const r = rows[0], comoProprietario = Number(r.proprietario_id) === Number(req.usuario.id);
+    // Contato só é liberado depois da aprovação, para as duas partes da locação.
+    const contatoLiberado = ['confirmada', 'concluida'].includes(r.estado);
+    const contraparte = comoProprietario
+      ? { papel: 'locatario', nome: r.solicitante_nome, cidade: r.solicitante_cidade, uf: r.solicitante_uf, ...(contatoLiberado ? { email: r.solicitante_email, telefone: r.solicitante_telefone } : {}) }
+      : { papel: 'proprietario', id: r.proprietario_id, nome: r.proprietario_nome, ...(contatoLiberado ? { email: r.proprietario_email, telefone: r.proprietario_telefone } : {}) };
+    res.json({ reserva: { id: r.id, anuncio_id: r.anuncio_id, inicio: r.inicio, fim: r.fim, diarias: r.diarias, valor_total: r.valor_total, moeda: r.moeda,
+      estado: r.estado, aprovacao_expira_em: r.aprovacao_expira_em, criado_em: r.criado_em, atualizado_em: r.atualizado_em, decidido_em: r.decidido_em,
+      observacao: r.observacao, motivo_recusa: r.motivo_recusa, pagamento_status: r.pagamento_status,
+      como: comoProprietario ? 'proprietario' : 'locatario', contato_liberado: contatoLiberado, contraparte,
+      equipamento: { nome: String(r.nome).replace(/^DEMO · /, ''), categoria: r.categoria, marca: r.marca, modelo: r.modelo, cidade: r.cidade, uf: r.uf, diaria: r.diaria, condicoes: r.condicoes,
+        foto_url: r.imagem_chave ? `/api/anuncios/${r.anuncio_id}/foto` : imagemCatalogo(r) } } });
   }));
   /** @openapi
    * /api/reservas/{id}:
    *   patch:
    *     tags: [Reservas]
    *     summary: Aprovar ou recusar solicitação própria recebida
+   *     description: Ao recusar, o proprietário pode informar motivo (até 500 caracteres), exibido ao locatário.
    *     security: [{sessao: []}]
    *     requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/DecisaoReserva'}}}}
    *     parameters: [{in: path, name: id, required: true, schema: {type: integer, minimum: 1}}]
@@ -597,6 +617,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
   router.patch('/reservas/:id', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
     const reservaId = id(req.params.id), estado = req.body?.estado;
     if (!['confirmada','recusada'].includes(estado)) throw erro(400, 'Estado de reserva inválido.');
+    const motivo = estado === 'recusada' && req.body?.motivo ? texto(req.body.motivo, 'Motivo', 500) : null;
     const c = await db.getConnection();
     try {
       await c.beginTransaction();
@@ -613,7 +634,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
         if (overlap.length) throw erro(409, 'O período já possui uma reserva confirmada.');
         if (rows[0].valor_total) await c.execute('UPDATE reservas SET aprovacao_expira_em=DATE_ADD(NOW(),INTERVAL 24 HOUR) WHERE id=?', [reservaId]);
       }
-      await c.execute('UPDATE reservas SET estado=? WHERE id=?', [estado, reservaId]); await c.commit();
+      await c.execute('UPDATE reservas SET estado=?,motivo_recusa=?,decidido_em=NOW() WHERE id=?', [estado, motivo, reservaId]); await c.commit();
     } catch (e) { await c.rollback(); throw e; } finally { c.release(); }
     await auditar(req, estado === 'confirmada' ? 'RESERVA_APROVADA' : 'RESERVA_RECUSADA', 'reserva', reservaId); res.json({ atualizado: true, estado });
   }));
@@ -640,6 +661,33 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
       await c.commit();
     }catch(e){await c.rollback();throw e;}finally{c.release();}
     await auditar(req, 'RESERVA_CANCELADA', 'reserva', reservaId); res.json({ atualizado: true, estado: 'cancelada' });
+  }));
+  /** @openapi
+   * /api/reservas/{id}/concluir:
+   *   post:
+   *     tags: [Reservas]
+   *     summary: Concluir locação aprovada e paga (proprietário)
+   *     security: [{sessao: []}]
+   *     parameters: [{in: path, name: id, required: true, schema: {type: integer, minimum: 1}}]
+   *     responses: {'200': {description: Locação concluída}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}, '404': {description: Reserva de outra conta}, '409': {description: 'Locação não aprovada, não paga ou ainda não iniciada'}}
+   */
+  router.post('/reservas/:id/concluir', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
+    const reservaId = id(req.params.id), c = await db.getConnection();
+    try {
+      await c.beginTransaction();
+      const [rows] = await c.execute(`SELECT r.id,r.estado,r.valor_total,r.inicio,CURDATE() hoje,
+        (SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status
+        FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id WHERE r.id=? AND a.proprietario_id=? FOR UPDATE`, [reservaId, req.usuario.id]);
+      if (!rows.length) throw erro(404, 'Reserva não encontrada.');
+      const r = rows[0];
+      if (r.estado !== 'confirmada') throw erro(409, 'Somente locações aprovadas podem ser concluídas.');
+      if (r.valor_total != null && r.pagamento_status !== 'pago') throw erro(409, 'A locação só pode ser concluída depois do pagamento confirmado.');
+      const iso = v => v instanceof Date ? v.toISOString().slice(0, 10) : String(v).slice(0, 10);
+      if (iso(r.inicio) > iso(r.hoje)) throw erro(409, 'A locação ainda não começou.');
+      await c.execute("UPDATE reservas SET estado='concluida' WHERE id=?", [reservaId]);
+      await c.commit();
+    } catch (e) { await c.rollback(); throw e; } finally { c.release(); }
+    await auditar(req, 'RESERVA_CONCLUIDA', 'reserva', reservaId); res.json({ atualizado: true, estado: 'concluida' });
   }));
   router.use((e, req, res, next) => {
     if (e instanceof multer.MulterError) return res.status(e.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ mensagem: e.code === 'LIMIT_FILE_SIZE' ? 'A foto deve ter no máximo 5 MB.' : 'Upload inválido.' });
@@ -679,4 +727,4 @@ async function registrarEvento(dados) {
   const r = await fetch(`${url}/eventos`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(dados), signal: AbortSignal.timeout(1500) });
   if (!r.ok) throw new Error('log-service indisponível');
 }
-module.exports = { criarRotasRural, papel, publico };
+module.exports = { criarRotasRural, papel, publico, imagemCatalogo, registrarEvento };

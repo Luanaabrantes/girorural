@@ -338,6 +338,11 @@
             "type": "string",
             "format": "date",
             "description": "Dia de devolução, exclusivo do cálculo de diárias."
+          },
+          "observacao": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Mensagem opcional ao proprietário (finalidade, entrega, operador)."
           }
         }
       },
@@ -676,6 +681,10 @@
               "confirmada",
               "recusada"
             ]
+          },
+          "motivo": {
+            "type": "string",
+            "maxLength": 500
           }
         }
       },
@@ -2365,6 +2374,62 @@
         }
       }
     },
+    "/api/auth/anunciante": {
+      "post": {
+        "tags": [
+          "Autenticação"
+        ],
+        "summary": "Habilitar modo anunciante",
+        "description": "Transforma a própria conta LOCATARIO em PROPRIETARIO após aceite dos termos e com telefone, cidade e UF no perfil. O proprietário continua podendo alugar equipamentos. O papel nunca é enviado pelo navegador.",
+        "operationId": "post_api_auth_anunciante",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "aceite_termos"
+                ],
+                "properties": {
+                  "aceite_termos": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Modo anunciante habilitado ou já ativo"
+          },
+          "400": {
+            "description": "Termos não aceitos"
+          },
+          "401": {
+            "description": "Sessão ausente ou inválida"
+          },
+          "403": {
+            "description": "Conta administrativa"
+          },
+          "409": {
+            "description": "Perfil incompleto"
+          },
+          "503": {
+            "description": "Serviço de autenticação indisponível"
+          }
+        }
+      }
+    },
     "/api/admin/usuarios": {
       "get": {
         "tags": [
@@ -3634,6 +3699,7 @@
           "Reservas"
         ],
         "summary": "Aprovar ou recusar solicitação própria recebida",
+        "description": "Ao recusar, o proprietário pode informar motivo (até 500 caracteres), exibido ao locatário.",
         "security": [
           {
             "sessao": []
@@ -3716,6 +3782,233 @@
           },
           "409": {
             "description": "Checkout/pagamento em andamento ou transição de estado não permitida"
+          }
+        }
+      }
+    },
+    "/api/reservas/{id}/concluir": {
+      "post": {
+        "tags": [
+          "Reservas"
+        ],
+        "summary": "Concluir locação aprovada e paga (proprietário)",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Locação concluída"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer PROPRIETARIO"
+          },
+          "404": {
+            "description": "Reserva de outra conta"
+          },
+          "409": {
+            "description": "Locação não aprovada, não paga ou ainda não iniciada"
+          }
+        }
+      }
+    },
+    "/api/admin/resumo": {
+      "get": {
+        "tags": [
+          "Administração"
+        ],
+        "summary": "Indicadores operacionais da plataforma (admin)",
+        "description": "Totais de contas por papel, anúncios por estado e moderação, reservas por estado e valor pago em modo de teste.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indicadores agregados, sem dados pessoais"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer ADMIN"
+          },
+          "503": {
+            "description": "Banco indisponível"
+          }
+        }
+      }
+    },
+    "/api/admin/anuncios": {
+      "get": {
+        "tags": [
+          "Administração"
+        ],
+        "summary": "Listar anúncios para moderação (admin)",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "schema": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "description": "Busca por equipamento, cidade ou proprietário"
+          },
+          {
+            "in": "query",
+            "name": "moderacao",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "liberado",
+                "suspenso"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Anúncios com proprietário e estado de moderação"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer ADMIN"
+          }
+        }
+      }
+    },
+    "/api/admin/anuncios/{id}/moderacao": {
+      "patch": {
+        "tags": [
+          "Administração"
+        ],
+        "summary": "Suspender ou liberar anúncio (admin)",
+        "description": "Suspender tira o anúncio do catálogo e impede que o proprietário o reative. Liberar remove o bloqueio; o proprietário decide quando reativar.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "acao"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "acao": {
+                    "type": "string",
+                    "enum": [
+                      "suspender",
+                      "liberar"
+                    ]
+                  },
+                  "motivo": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Moderação aplicada"
+          },
+          "400": {
+            "description": "Ação ou motivo inválido"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer ADMIN"
+          },
+          "404": {
+            "description": "Anúncio não encontrado"
+          }
+        }
+      }
+    },
+    "/api/admin/reservas": {
+      "get": {
+        "tags": [
+          "Administração"
+        ],
+        "summary": "Consultar reservas da plataforma (admin)",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "estado",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "solicitada",
+                "confirmada",
+                "recusada",
+                "cancelada",
+                "concluida"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Reservas com partes, valores e estado do pagamento"
+          },
+          "400": {
+            "description": "Filtro inválido"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer ADMIN"
           }
         }
       }

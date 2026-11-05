@@ -163,6 +163,8 @@ app.use('/api', require('./perfil').criarRotasPerfil());
 app.use('/api', require('./rural/rotas').criarRotasRural());
 
 app.use('/api/logs', logsRoutes);
+// Moderação, reservas e indicadores administrativos do domínio GiroRural.
+app.use('/api/admin', require('./rural/admin').criarRotasAdminRural());
 app.use('/api/admin', adminRoutes);
 
 app.use('/api', (req, res) => res.status(404).json({ mensagem: 'Rota não encontrada.' }));

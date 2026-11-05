@@ -9,11 +9,11 @@ const { gerar } = require('../src/openapi');
 const rotas = {
   girorural: {
     'src/server.js': '', 'src/auth.js': '/api/auth', 'src/perfil.js': '/api', 'src/logs.js': '/api/logs',
-    'src/admin.js': '/api/admin', 'src/premium.js': '/api/premium', 'src/locacao.js': '/api/locacao', 'src/rural/rotas.js': '/api'
+    'src/admin.js': '/api/admin', 'src/premium.js': '/api/premium', 'src/locacao.js': '/api/locacao', 'src/rural/rotas.js': '/api', 'src/rural/admin.js': '/api/admin'
   },
   auth: {
     'auth-service/src/auth.js': '/auth', 'auth-service/src/admin.js': '/auth/admin',
-    'auth-service/src/recuperacaoSenha.js': '/auth', 'auth-service/src/server.js': ''
+    'auth-service/src/recuperacaoSenha.js': '/auth', 'auth-service/src/anunciante.js': '/auth', 'auth-service/src/server.js': ''
   }
 };
 
