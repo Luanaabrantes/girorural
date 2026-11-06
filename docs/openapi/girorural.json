@@ -1552,6 +1552,73 @@
         }
       }
     },
+    "/api/locacao/reservas/{id}/simular-pagamento": {
+      "post": {
+        "tags": [
+          "Locação"
+        ],
+        "summary": "Simular pagamento aprovado ou recusado (modo de teste)",
+        "description": "Disponível só com chaves Stripe de teste ou sem Stripe, e quando PAGAMENTO_SIMULADO não é false. Valor e reserva vêm do banco; nada é cobrado.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "resultado"
+                ],
+                "properties": {
+                  "resultado": {
+                    "type": "string",
+                    "enum": [
+                      "aprovado",
+                      "recusado"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pagamento simulado registrado"
+          },
+          "400": {
+            "description": "Resultado inválido"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Simulação desativada"
+          },
+          "404": {
+            "description": "Reserva de outra pessoa"
+          },
+          "409": {
+            "description": "Reserva não aprovada, expirada ou já paga"
+          }
+        }
+      }
+    },
     "/api/locacao/reservas/{id}/pagamento": {
       "get": {
         "tags": [

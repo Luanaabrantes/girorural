@@ -186,4 +186,14 @@ app.listen(PORT, () => {
         `Servidor rodando na porta ${PORT}`
     );
 
+    // Catálogo inicial com máquinas reais anunciadas; tenta de novo se o banco ainda não respondeu.
+    if (process.env.NODE_ENV !== 'test') {
+        const { garantirCatalogo } = require('./rural/catalogo');
+        const tentar = (n = 1) => garantirCatalogo(require('./database')).catch(e => {
+            console.error(`Catálogo inicial não aplicado (tentativa ${n}): ${e.message}`);
+            if (n < 5) setTimeout(() => tentar(n + 1), 15000 * n);
+        });
+        tentar();
+    }
+
 });

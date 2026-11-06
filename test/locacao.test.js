@@ -64,7 +64,7 @@ test('checkout usa modo payment, preço do banco, metadata vinculada e reusa uma
 test('checkout bloqueia aprovação ausente e nega sessão de outro locatário',async t=>{
   const pending=harness({reservationState:'solicitada'}),base1=await withServer(t,pending.app);assert.equal((await fetch(base1+'/api/locacao/reservas/3/checkout',{method:'POST'})).status,409);
   const other=harness({userId:99}),base2=await withServer(t,other.app);assert.equal((await fetch(base2+'/api/locacao/reservas/3/checkout',{method:'POST'})).status,404);
-  const owner=harness({role:'PROPRIETARIO'}),base3=await withServer(t,owner.app);assert.equal((await fetch(base3+'/api/locacao/reservas/3/checkout',{method:'POST'})).status,403);
+  const owner=harness({role:'PROPRIETARIO'}),base3=await withServer(t,owner.app);assert.equal((await fetch(base3+'/api/locacao/reservas/3/checkout',{method:'POST'})).status,200); // proprietário que alugou de outra pessoa também paga a própria reserva
 });
 
 test('status financeiro fica restrito às partes e expiração Stripe libera o período',async t=>{

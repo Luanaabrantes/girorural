@@ -17,7 +17,7 @@
     if (!m) return p;
     fetch('/imagens/catalogo/maquinas/manifest.json').then(r => r.ok ? r.json() : []).then(lista => {
       const c = lista.find(x => x.arquivo === m[1]); if (!c) return;
-      p.append('Foto ilustrativa: ', c.autor || 'autor desconhecido', ' · ', el('a', { href: c.licenca_url || c.fonte, target: '_blank', rel: 'noopener' }, c.licenca), ' · ', el('a', { href: c.fonte, target: '_blank', rel: 'noopener' }, 'Wikimedia Commons'));
+      p.append('Foto: ', c.autor || 'autor desconhecido', ' · ', el('a', { href: c.licenca_url || c.fonte, target: '_blank', rel: 'noopener' }, c.licenca), ' · ', el('a', { href: c.fonte, target: '_blank', rel: 'noopener' }, 'Wikimedia Commons'));
     }).catch(() => {});
     return p;
   }

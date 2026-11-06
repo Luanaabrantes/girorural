@@ -55,7 +55,11 @@
       try { const d = await api(`/api/locacao/reservas/${id}/checkout`, { method: 'POST' }); location.assign(d.url); }
       catch (e) { msg.className = 'msg erro'; msg.textContent = e.message; botao.disabled = false; }
     };
-    const passos = ['Você vai para a página segura do Stripe para digitar o cartão.', 'O GiroRural não vê nem guarda os dados do seu cartão.', 'A reserva só fica paga quando o Stripe confirma o pagamento.'];
+    const passos = p.stripe_disponivel
+      ? ['Você vai para a página segura do Stripe para digitar o cartão.', 'O GiroRural não vê nem guarda os dados do seu cartão.', 'A reserva só fica paga quando o Stripe confirma o pagamento.']
+      : ['Confira o resumo do pedido ao lado.', 'Confirme o pagamento no botão abaixo; nenhuma cobrança real é feita.', 'Com o pagamento aprovado, o contato do proprietário fica liberado na reserva.'];
+    const faixa = document.querySelector('.faixa-teste span');
+    if (faixa && !p.stripe_disponivel) faixa.textContent = 'Ambiente de teste: o pagamento é simulado e nenhuma cobrança real é feita.';
     const secao = el('section', { style: 'flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:24px' },
       el('div', { style: 'display:flex;flex-direction:column;gap:6px' }, el('h1', { style: 'font-size:32px;font-weight:700;letter-spacing:-.02em' }, 'Pagamento'), sub),
       el('div', { role: 'radiogroup', 'aria-label': 'Forma de pagamento', style: 'display:flex;gap:12px' },
@@ -63,8 +67,27 @@
       el('div', { class: 'gcard', style: 'padding:28px;display:flex;flex-direction:column;gap:16px' },
         el('b', { style: 'font-size:18px;display:flex;gap:10px;align-items:center' }, icone(I.escudo, 22, '#1F6B3A'), 'Como funciona'),
         el('ol', { class: 'mu', style: 'margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:15px;line-height:1.5' }, passos.map(t => el('li', {}, t)))),
-      el('div', { style: 'display:flex;flex-direction:column;gap:12px' }, el('div', { style: 'display:flex;gap:12px;flex-wrap:wrap' }, botao, el('a', { class: 'btn bo', href: `/reserva.html?id=${id}`, style: 'min-height:52px' }, 'Voltar à reserva')), msg));
+      p.stripe_disponivel ? el('div', { style: 'display:flex;flex-direction:column;gap:12px' }, el('div', { style: 'display:flex;gap:12px;flex-wrap:wrap' }, botao, el('a', { class: 'btn bo', href: `/reserva.html?id=${id}`, style: 'min-height:52px' }, 'Voltar à reserva')), msg) : '',
+      p.simulacao_disponivel ? simulacao() : '');
     raiz.replaceChildren(el('div', { style: 'display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start' }, secao, resumo(r, p)));
+  }
+
+  // Botões de simulação (ambiente de teste): aprovam ou recusam sem cobrança real.
+  function simulacao() {
+    const msg = el('p', { class: 'msg', role: 'status', 'aria-live': 'polite' });
+    const enviar = async (resultado, b) => {
+      b.disabled = true; msg.className = 'msg'; msg.textContent = 'Processando…';
+      try {
+        await api(`/api/locacao/reservas/${id}/simular-pagamento`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ resultado }) });
+        location.assign(`/pagamento.html?reserva_id=${id}&resultado=${resultado === 'aprovado' ? 'sucesso' : 'recusado'}`);
+      } catch (e) { msg.className = 'msg erro'; msg.textContent = e.message; b.disabled = false; }
+    };
+    const ok = el('button', { class: 'btn bp', type: 'button', style: 'min-height:52px;padding:0 24px;font-size:16px' }, 'Simular pagamento aprovado');
+    const nao = el('button', { class: 'btn bo', type: 'button', style: 'min-height:52px;color:#9B2A22;border-color:#E9B4AF' }, 'Simular pagamento recusado');
+    ok.onclick = () => enviar('aprovado', ok); nao.onclick = () => enviar('recusado', nao);
+    return el('div', { style: 'display:flex;flex-direction:column;gap:12px;padding:20px;border:1.5px dashed #CFCAC1;border-radius:12px' },
+      el('span', { class: 'mu', style: 'font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase' }, 'Simulação · modo de teste'),
+      el('div', { style: 'display:flex;gap:12px;flex-wrap:wrap' }, ok, nao), msg);
   }
 
   function telaResultado(tipo, r, p, extra) {
@@ -75,7 +98,7 @@
     }[tipo];
     const e = r.equipamento || {};
     const linhas = [['Reserva', `#${r.id}`], ['Máquina', e.nome || '—'], ['Período', `${dataBR(p.inicio)} a ${dataBR(p.fim)}`]];
-    if (tipo === 'ok') linhas.push(['Forma', 'Cartão de crédito · Stripe (teste)']);
+    if (tipo === 'ok') linhas.push(['Forma', 'Cartão de crédito (modo de teste)']);
     const acoes = tipo === 'falha'
       ? [el('a', { class: 'btn bp', href: `/pagamento.html?reserva_id=${id}` }, 'Tentar de novo'), el('a', { class: 'btn bo', href: `/reserva.html?id=${id}` }, 'Voltar à reserva')]
       : [el('a', { class: 'btn bp', href: `/reserva.html?id=${id}` }, 'Ver detalhes da reserva'), el('a', { class: 'btn bo', href: '/minhas-reservas.html' }, 'Minhas reservas')];
@@ -104,6 +127,7 @@
     const prazo = p.aprovacao_expira_em ? ` Sua reserva continua aprovada até ${dataHora(p.aprovacao_expira_em)}.` : '';
     if (p.pagamento_status === 'pago') return telaResultado('ok', r, p);
     if (resultado === 'cancelado') return telaResultado('falha', r, p, `Você saiu do pagamento antes de concluir. Nenhum valor foi cobrado.${prazo}`);
+    if (resultado === 'recusado' && p.pagamento_status === 'falho') return telaResultado('falha', r, p, `O pagamento foi recusado. Nenhum valor foi cobrado.${prazo}`);
     if (resultado === 'sucesso') {
       telaResultado('espera', r, p);
       for (let i = 0; i < 10; i++) {

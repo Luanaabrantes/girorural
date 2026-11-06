@@ -45,11 +45,13 @@ function criarLocacao({ db = dbPadrao, autenticar = autenticarPadrao, env = proc
     try { await handler(req, res); }
     catch (e) { if (e.status) return res.status(e.status).json({ mensagem: e.message }); console.error('Falha na operação de locação.'); return res.status(503).json({ mensagem: 'Não foi possível concluir a operação de locação.' }); }
   };
-  const exigir = role => (req, res, next) => {
+  const exigir = (...roles) => (req, res, next) => {
     if (!req.usuario) return res.status(401).json({ mensagem: 'Usuário não autenticado.' });
-    if (papel(req.usuario.role) !== role) return res.status(403).json({ mensagem: `Esta operação requer o papel ${role}.` });
+    if (!roles.includes(papel(req.usuario.role))) return res.status(403).json({ mensagem: `Esta operação requer o papel ${roles.join(' ou ')}.` });
     next();
   };
+  // Simulação de pagamento: disponível enquanto o sistema roda só com chaves Stripe de teste (ou sem Stripe).
+  const simulacaoDisponivel = () => env.PAGAMENTO_SIMULADO !== 'false' && (!env.STRIPE_SECRET_KEY || /^sk_test_/.test(env.STRIPE_SECRET_KEY));
   const auditar = async (req, acao, reservaId, detalhes = {}) => {
     try { await evento({ usuario_id: req.usuario.id, acao, ip: req.ip, detalhes: { recurso: 'reserva', recurso_id: String(reservaId), ...detalhes } }); }
     catch { console.error('Evento financeiro não foi registrado no log-service.'); }
@@ -65,7 +67,7 @@ function criarLocacao({ db = dbPadrao, autenticar = autenticarPadrao, env = proc
    *     parameters: [{in: path, name: id, required: true, schema: {type: integer, minimum: 1}}]
    *     responses: {'200': {description: 'URL do Stripe Checkout em modo de teste'}, '401': {description: Sessão ausente}, '403': {description: Requer LOCATARIO}, '404': {description: 'Reserva não encontrada ou de outra pessoa'}, '409': {description: 'Reserva não aprovada, expirada ou já paga'}, '503': {description: 'Stripe de teste indisponível'}}
    */
-  router.post('/reservas/:id/checkout', autenticar, exigir('LOCATARIO'), executar(async (req, res) => {
+  router.post('/reservas/:id/checkout', autenticar, exigir('LOCATARIO', 'PROPRIETARIO'), executar(async (req, res) => {
     const reservaId = parseId(req.params.id), usuarioId = String(req.usuario.id), cfg = config();
     let payment, sessionUrl = null, retrieveId = null;
     const c = await db.getConnection();
@@ -146,6 +148,40 @@ function criarLocacao({ db = dbPadrao, autenticar = autenticarPadrao, env = proc
   }));
 
   /** @openapi
+   * /api/locacao/reservas/{id}/simular-pagamento:
+   *   post:
+   *     tags: [Locação]
+   *     summary: Simular pagamento aprovado ou recusado (modo de teste)
+   *     description: Disponível só com chaves Stripe de teste ou sem Stripe, e quando PAGAMENTO_SIMULADO não é false. Valor e reserva vêm do banco; nada é cobrado.
+   *     security: [{sessao: []}]
+   *     parameters: [{in: path, name: id, required: true, schema: {type: integer, minimum: 1}}]
+   *     requestBody: {required: true, content: {application/json: {schema: {type: object, required: [resultado], properties: {resultado: {type: string, enum: [aprovado, recusado]}}}}}}
+   *     responses: {'200': {description: Pagamento simulado registrado}, '400': {description: Resultado inválido}, '401': {description: Sessão ausente}, '403': {description: Simulação desativada}, '404': {description: Reserva de outra pessoa}, '409': {description: 'Reserva não aprovada, expirada ou já paga'}}
+   */
+  router.post('/reservas/:id/simular-pagamento', autenticar, exigir('LOCATARIO', 'PROPRIETARIO'), executar(async (req, res) => {
+    if (!simulacaoDisponivel()) throw erro(403, 'A simulação de pagamento está desativada neste ambiente.');
+    const reservaId = parseId(req.params.id), resultado = req.body?.resultado;
+    if (!['aprovado', 'recusado'].includes(resultado)) throw erro(400, 'Resultado inválido.');
+    const status = resultado === 'aprovado' ? 'pago' : 'falho';
+    const c = await db.getConnection();
+    try {
+      await c.beginTransaction();
+      const [rows] = await c.execute(`SELECT r.id,r.estado,r.valor_total,r.moeda,r.aprovacao_expira_em FROM reservas r WHERE r.id=? AND r.solicitante_id=? FOR UPDATE`, [reservaId, req.usuario.id]);
+      if (!rows.length) throw erro(404, 'Reserva não encontrada.');
+      const r = rows[0];
+      if (r.estado !== 'confirmada') throw erro(409, 'A solicitação precisa ser aprovada pelo proprietário antes do pagamento.');
+      if (!r.valor_total) throw erro(409, 'Esta reserva não tem valor registrado.');
+      if (r.aprovacao_expira_em && new Date(r.aprovacao_expira_em).getTime() <= Date.now()) throw erro(409, 'O prazo para pagar esta aprovação terminou. Solicite um novo período.');
+      const [pags] = await c.execute('SELECT id,status FROM locacao_pagamentos WHERE reserva_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE', [reservaId]);
+      if (pags[0]?.status === 'pago') throw erro(409, 'Esta locação já foi paga.');
+      await c.execute(`INSERT INTO locacao_pagamentos (reserva_id,valor_total,moeda,status,checkout_expira_em) VALUES (?,?,?,?,DATE_ADD(NOW(),INTERVAL 1 HOUR))`, [reservaId, r.valor_total, r.moeda || 'BRL', status]);
+      await c.commit();
+    } catch (e) { await c.rollback(); throw e; } finally { c.release(); }
+    await auditar(req, status === 'pago' ? 'LOCACAO_PAGA' : 'LOCACAO_PAGAMENTO_FALHO', reservaId, { simulado: true });
+    res.json({ status, mensagem: status === 'pago' ? 'Pagamento aprovado (simulação).' : 'Pagamento recusado (simulação).' });
+  }));
+
+  /** @openapi
    * /api/locacao/reservas/{id}/pagamento:
    *   get:
    *     tags: [Locação]
@@ -156,14 +192,17 @@ function criarLocacao({ db = dbPadrao, autenticar = autenticarPadrao, env = proc
    */
   router.get('/reservas/:id/pagamento', autenticar, executar(async (req, res) => {
     const reservaId = parseId(req.params.id);
-    const [rows] = await db.execute(`SELECT r.id,r.estado,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.aprovacao_expira_em,
+    const [rows] = await db.execute(`SELECT r.id,r.estado,r.inicio,r.fim,r.diarias,r.valor_total,r.moeda,r.aprovacao_expira_em,r.solicitante_id,
         a.proprietario_id,(SELECT p.status FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) pagamento_status,
         (SELECT p.checkout_expira_em FROM locacao_pagamentos p WHERE p.reserva_id=r.id ORDER BY p.id DESC LIMIT 1) checkout_expira_em
       FROM reservas r JOIN anuncios a ON a.id=r.anuncio_id WHERE r.id=? AND (r.solicitante_id=? OR a.proprietario_id=?)`, [reservaId, req.usuario.id, req.usuario.id]);
     if (!rows.length) throw erro(404, 'Reserva não encontrada.');
     const row = rows[0];
     delete row.proprietario_id;
-    row.pode_pagar = papel(req.usuario.role) === 'LOCATARIO' && row.estado === 'confirmada' && row.pagamento_status !== 'pago';
+    row.pode_pagar = Number(row.solicitante_id) === Number(req.usuario.id) && row.estado === 'confirmada' && row.pagamento_status !== 'pago';
+    row.simulacao_disponivel = simulacaoDisponivel();
+    row.stripe_disponivel = !!(env.STRIPE_SECRET_KEY && env.APP_BASE_URL);
+    delete row.solicitante_id;
     res.json({ reserva: row });
   }));
 

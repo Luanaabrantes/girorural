@@ -39,7 +39,7 @@ async function carregar() {
   else if (r.estado === 'cancelada') t.push(passo('Reserva cancelada', dataHora(r.atualizado_em), 'falha'));
   else t.push(passo('Aprovada pelo proprietário', dataHora(r.decidido_em), 'feito'));
   if (['confirmada', 'concluida'].includes(r.estado) && r.valor_total != null) {
-    if (pago) t.push(passo('Pagamento confirmado', 'Modo de teste Stripe', 'feito'));
+    if (pago) t.push(passo('Pagamento confirmado', 'Ambiente de teste, sem cobrança real', 'feito'));
     else t.push(passo(r.pagamento_status === 'falho' ? 'Pagamento recusado: tente novamente' : 'Aguardando pagamento',
       r.aprovacao_expira_em ? `Pague até ${dataHora(r.aprovacao_expira_em)} para garantir as datas.` : '', r.pagamento_status === 'falho' ? 'falha' : 'atual'));
   }
@@ -77,7 +77,7 @@ async function carregar() {
     if (r.estado === 'confirmada' && r.valor_total != null && !pago && !['checkout_aberto', 'pendente', 'criando'].includes(r.pagamento_status)) {
       const b = el('button', 'button', r.pagamento_status === 'falho' ? 'Tentar pagar novamente' : `Pagar ${moeda(r.valor_total, r.moeda)}`); b.type = 'button';
       b.onclick = () => location.assign(`/pagamento.html?reserva_id=${r.id}`);
-      acoes.push(b, el('small', '', 'Ambiente de teste: use o cartão 4242 4242 4242 4242, qualquer data futura e CVC.'));
+      acoes.push(b, el('small', '', 'Na próxima tela você confirma o pagamento da locação.'));
     }
     if (['checkout_aberto', 'pendente', 'criando'].includes(r.pagamento_status)) acoes.push(el('p', 'notice', 'Pagamento em processamento. Atualize a página em alguns instantes.'));
     if (r.estado === 'solicitada' || (r.estado === 'confirmada' && !r.pagamento_status)) {
