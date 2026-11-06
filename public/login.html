@@ -1,1 +1,30 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Entrar · GiroRural</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"></head><body><header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav><a href="/anuncios.html">Explorar equipamentos</a></nav></header><main class="page" style="max-width:520px"><p class="eyebrow">BEM-VINDO DE VOLTA</p><h1>Entre na sua conta</h1><form id="formLogin" class="panel"><div class="form-grid"><label>E-mail<input id="email" type="email" autocomplete="email" required></label><label>Senha<input id="senha" type="password" autocomplete="current-password" required></label></div><button class="button" type="submit">Entrar</button><p id="mensagem" role="status"></p><p><a href="/esqueci-senha.html">Esqueci minha senha</a> · <a href="/cadastro.html">Criar conta</a></p></form></main><script src="login.js"></script><script src="nav.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Entrar · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g" style="margin:0">
+  <div class="split">
+    <main style="flex:1 1 520px;display:flex;flex-direction:column;padding:40px clamp(16px,6vw,96px);gap:40px">
+      <a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a>
+      <form id="formLogin" style="width:100%;max-width:420px;margin:auto 0;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-direction:column;gap:8px"><h1 style="font-size:32px;font-weight:700;letter-spacing:-.02em">Que bom te ver de novo</h1><p class="mu" style="font-size:16px">Entre para ver suas reservas e sua garagem.</p></div>
+        <label class="lb">E-mail<input class="in" id="email" type="email" autocomplete="username" required></label>
+        <label class="lb"><span style="display:flex;justify-content:space-between;align-items:center">Senha<a href="/esqueci-senha.html" style="font-size:14px;font-weight:600">Esqueci minha senha</a></span><input class="in" id="senha" type="password" autocomplete="current-password" required></label>
+        <button class="btn bp" type="submit" style="width:100%;min-height:48px">Entrar</button>
+        <p id="mensagem" class="msg" role="status"></p>
+        <p style="font-size:15px;text-align:center">Ainda não tem conta? <a href="/cadastro.html" style="font-weight:600">Criar conta grátis</a></p>
+      </form>
+      <p class="mu" style="font-size:13px">Sessão protegida por cookie seguro · <a href="/">Voltar ao início</a></p>
+    </main>
+    <aside class="foto-campo" style="flex:1 1 480px;min-height:420px;padding:56px;display:flex;flex-direction:column;justify-content:flex-end;gap:20px">
+      <p style="margin:0;font-size:24px;line-height:1.4;font-weight:600;max-width:520px;color:#fff">Tratores, colheitadeiras e implementos de produtores da sua região, com reserva por diária e aprovação do proprietário.</p>
+      <span style="font-size:15px;color:#D6EADD">GiroRural · equipamento certo, na hora certa</span>
+    </aside>
+  </div>
+  <script src="login.js"></script>
+</body>
+</html>

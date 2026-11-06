@@ -1,1 +1,45 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Criar conta · GiroRural</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"></head><body><header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav><a href="/login.html">Entrar</a></nav></header><main class="page" style="max-width:560px"><p class="eyebrow">COMECE GRATUITAMENTE</p><h1>Crie sua conta</h1><p class="lead">Sua conta começa com o papel de locatário. Um administrador pode atribuir o papel de proprietário às contas que anunciam equipamentos.</p><form id="formCadastro" class="panel"><div class="form-grid"><label>Nome<input id="nome" name="nome" maxlength="120" autocomplete="name" required></label><label>E-mail<input id="email" name="email" type="email" autocomplete="email" required></label><label>Senha<input id="senha" name="senha" type="password" minlength="6" autocomplete="new-password" required></label></div><button class="button">Criar conta</button><p id="mensagem" role="status"></p></form></main><script src="cadastro.js"></script><script src="nav.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Criar conta · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g" style="margin:0">
+  <div class="split">
+    <aside style="flex:1 1 400px;max-width:560px;background:#14472A;color:#fff;padding:40px clamp(16px,4vw,64px);display:flex;flex-direction:column;gap:40px">
+      <a class="brand claro" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-top:40px"><h2 style="font-size:36px;line-height:1.1;font-weight:800;letter-spacing:-.03em;color:#fff">Uma conta para alugar e para anunciar.</h2><p style="font-size:17px;line-height:1.5;color:#D6EADD">Comece como locatário. Quando quiser anunciar, habilite o modo anunciante no seu menu.</p></div>
+      <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px;font-size:16px">
+        <li style="display:flex;gap:12px;align-items:flex-start"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2B705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M20 6 9 17l-5-5"/></svg>Cadastro gratuito, sem mensalidade</li>
+        <li style="display:flex;gap:12px;align-items:flex-start"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2B705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M20 6 9 17l-5-5"/></svg>Você só paga uma locação depois que o proprietário aprovar</li>
+        <li style="display:flex;gap:12px;align-items:flex-start"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F2B705" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M20 6 9 17l-5-5"/></svg>Seus dados protegidos conforme a LGPD</li>
+      </ul>
+    </aside>
+    <main style="flex:999 1 560px;padding:56px clamp(16px,6vw,96px);display:flex;justify-content:center">
+      <form id="formCadastro" style="width:100%;max-width:640px;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-direction:column;gap:8px"><h1 style="font-size:32px;font-weight:700;letter-spacing:-.02em">Criar conta</h1><p class="mu" style="font-size:16px">Já tem conta? <a href="/login.html" style="font-weight:600">Entrar</a></p></div>
+        <label class="lb">Nome completo<input class="in" id="nome" maxlength="120" autocomplete="name" required></label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr));gap:16px">
+          <label class="lb">E-mail<input class="in" id="email" type="email" autocomplete="email" required></label>
+          <label class="lb">Telefone (WhatsApp)<input class="in" id="telefone" type="tel" maxlength="30" autocomplete="tel" placeholder="(00) 00000-0000"></label>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:16px">
+          <label class="lb">Cidade<input class="in" id="cidade" maxlength="120" autocomplete="address-level2"></label>
+          <label class="lb">UF<select class="in" id="uf" autocomplete="address-level1"><option value="">—</option></select></label>
+        </div>
+        <label class="lb">Senha<input class="in" id="senha" type="password" minlength="6" autocomplete="new-password" required aria-describedby="forcaTexto">
+          <span class="forca" id="forca" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+          <span style="display:flex;justify-content:space-between;font-size:13px;font-weight:400;gap:8px"><span id="forcaTexto" style="font-weight:600">Força: —</span><span class="mu">6+ caracteres; use número e símbolo</span></span>
+        </label>
+        <label class="lb">Confirmar senha<input class="in" id="confirmar" type="password" autocomplete="new-password" required></label>
+        <label style="display:flex;gap:12px;align-items:flex-start;font-size:15px;line-height:1.5;padding:16px;border-radius:12px;background:#fff;border:1px solid #EDEBE7"><input id="aceite" type="checkbox" required style="width:20px;height:20px;margin-top:2px;accent-color:#1F6B3A;flex:none"><span>Li e aceito os Termos de uso e a Política de privacidade do GiroRural.</span></label>
+        <button class="btn bp" style="width:100%;min-height:52px;font-size:16px">Criar minha conta</button>
+        <p id="mensagem" class="msg" role="status" style="text-align:center"></p>
+      </form>
+    </main>
+  </div>
+  <script src="cadastro.js"></script>
+</body>
+</html>

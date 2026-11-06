@@ -12,7 +12,7 @@ formLogin.addEventListener('submit', async (evento) => {
         document.getElementById('senha').value;
 
     mensagem.textContent = 'Entrando...';
-    mensagem.className = '';
+    mensagem.className = 'msg';
 
     try {
 
@@ -40,7 +40,7 @@ formLogin.addEventListener('submit', async (evento) => {
                 dados.mensagem ||
                 'E-mail ou senha inválidos.';
 
-            mensagem.className = 'mensagem-erro';
+            mensagem.className = 'msg erro';
 
             return;
         }
@@ -49,7 +49,7 @@ formLogin.addEventListener('submit', async (evento) => {
             'Login realizado com sucesso!';
 
         mensagem.className =
-            'mensagem-sucesso';
+            'msg ok';
 
         // Retorna à página que pediu login (somente caminhos internos).
         const voltar = new URLSearchParams(location.search).get('voltar');
@@ -66,7 +66,7 @@ formLogin.addEventListener('submit', async (evento) => {
             'Não foi possível conectar ao servidor.';
 
         mensagem.className =
-            'mensagem-erro';
+            'msg erro';
     }
 
 });

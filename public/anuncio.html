@@ -2,17 +2,20 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Detalhes de equipamento e condições do anúncio GiroRural.">
-  <title>Detalhes do equipamento · GiroRural</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="catalogo.css">
-<link rel="stylesheet" href="tema.css"></head>
-<body>
-  <header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav><a href="/painel.html">Meu negócio</a><a href="/perfil.html">Meu perfil</a><a href="/minhas-reservas.html">Minhas reservas</a><a class="button small" href="/login.html">Entrar</a></nav></header>
-  <main class="page detail-page">
-    <a class="back-link" href="/anuncios.html">← Voltar aos equipamentos</a>
-    <p id="status" role="status" class="notice">Carregando detalhes...</p>
-    <section id="detalhe" hidden></section>
+  <meta name="description" content="Detalhes, ficha técnica e reserva de equipamento no GiroRural.">
+  <title>Detalhes da máquina · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g">
+  <header class="top"><a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a><nav></nav></header>
+  <main class="wrap" style="padding-top:24px;padding-bottom:80px;display:flex;flex-direction:column;gap:24px">
+    <p id="status" role="status" class="mu">Carregando detalhes…</p>
+    <div id="detalhe" hidden style="display:contents"></div>
   </main>
+  <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Galeria de fotos" hidden></div>
+  <script src="vitrine.js"></script>
   <script src="anuncio.js"></script>
-<script src="nav.js"></script></body>
+  <script src="nav.js"></script>
+</body>
 </html>

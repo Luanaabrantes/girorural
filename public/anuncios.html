@@ -1,11 +1,44 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Equipamentos disponíveis · GiroRural</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="catalogo.css"><link rel="stylesheet" href="tema.css"></head>
-<body>
-  <header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav aria-label="Navegação principal"><a href="/painel.html">Meu negócio</a><a href="/perfil.html">Meu perfil</a><a href="/minhas-reservas.html">Minhas reservas</a><a class="button small" href="/login.html">Entrar</a></nav></header>
-  <main class="page"><p class="eyebrow">OFERTA LOCAL</p><h1>Equipamentos disponíveis</h1><p class="lead">Encontre opções e combine os detalhes da locação diretamente com o proprietário.</p>
-    <form id="filtros" class="toolbar"><label>Pesquisar<input name="busca" placeholder="Nome, marca, modelo"></label><label>Cidade<input name="cidade" placeholder="Ex.: Ribeirão Preto"></label><label>Categoria<input name="categoria" placeholder="Ex.: Plantio"></label><label>Diária mínima<input name="diaria_min" type="number" min="0" step="0.01" placeholder="R$"></label><label>Diária máxima<input name="diaria_max" type="number" min="0" step="0.01" placeholder="R$"></label><label>Ordenar por<select name="ordenar"><option value="recentes">Mais recentes</option><option value="menor-preco">Menor diária</option><option value="maior-preco">Maior diária</option></select></label><button class="button">Buscar</button><button class="button outline" type="reset">Limpar</button></form>
-    <p id="status" role="status" class="notice">Carregando anúncios...</p><section id="anuncios" class="cards"></section>
-  </main><script src="anuncios.js"></script>
-<script src="nav.js"></script></body>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Explorar máquinas · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g">
+  <header class="top"><a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a><label class="busca-topo"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="buscaTopo" form="filtros" name="busca" aria-label="Buscar máquinas" placeholder="Buscar máquinas"></label><nav></nav></header>
+  <main class="wrap" style="padding-top:28px;padding-bottom:64px;display:flex;flex-direction:column;gap:20px">
+    <nav aria-label="Você está em" style="display:flex;gap:8px;font-size:14px"><a href="/">Início</a><span class="mu" aria-hidden="true">/</span><span class="mu" aria-current="page" id="trilha">Máquinas disponíveis</span></nav>
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:6px"><h1 id="titulo" style="font-size:32px;font-weight:700;letter-spacing:-.02em;margin:0">Máquinas disponíveis</h1><p class="mu" style="font-size:15px;margin:0" id="status" role="status">Carregando máquinas…</p></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500">Ordenar por<select class="in" name="ordenar" form="filtros" style="width:auto;height:40px"><option value="recentes">Mais recentes</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option></select></label>
+    </div>
+    <div id="chips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+
+    <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start">
+      <form id="filtros" aria-label="Filtros" class="gcard" style="flex:1 1 280px;max-width:320px;padding:4px 20px 20px;margin:0">
+        <fieldset class="fs"><legend>Categoria</legend>
+          <label class="ck"><input type="radio" name="categoria" value="" checked>Todas</label>
+          <div id="filtroCategorias" style="display:contents"></div>
+        </fieldset>
+        <fieldset class="fs"><legend>Preço por diária</legend>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px"><label class="mu" style="font-size:13px;display:flex;flex-direction:column;gap:4px">Mín. (R$)<input class="in" name="diaria_min" type="number" min="0" step="0.01" inputmode="decimal"></label><label class="mu" style="font-size:13px;display:flex;flex-direction:column;gap:4px">Máx. (R$)<input class="in" name="diaria_max" type="number" min="0" step="0.01" inputmode="decimal"></label></div>
+        </fieldset>
+        <fieldset class="fs" style="border-bottom:0"><legend>Localização</legend>
+          <input class="in" name="cidade" aria-label="Cidade" placeholder="Cidade" autocomplete="address-level2">
+        </fieldset>
+        <button class="btn bp" style="width:100%">Aplicar filtros</button>
+      </form>
+
+      <section aria-label="Resultados" style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:24px">
+        <div id="anuncios" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(260px,100%),1fr));gap:24px"></div>
+        <nav aria-label="Paginação" id="paginacao" style="display:flex;gap:6px;justify-content:center"></nav>
+      </section>
+    </div>
+  </main>
+  <script src="vitrine.js"></script>
+  <script src="anuncios.js"></script>
+  <script src="nav.js"></script>
+</body>
 </html>
