@@ -43,14 +43,14 @@ jobs:
           docker run --rm --network none ci-minio --version
           docker save ci-girorural-api ci-auth-service ci-log-service ci-minio -o imagens.tar
       - uses: actions/upload-artifact@v4
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/atividade-extra-cicd' || github.ref == 'refs/heads/atividade-7-stripe-premium' || github.ref == 'refs/heads/atividade-10-girorural-no-ar')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/atividade-extra-cicd' || github.ref == 'refs/heads/atividade-7-stripe-premium' || github.ref == 'refs/heads/atividade-10-girorural-no-ar' || github.ref == 'refs/heads/main')
         with:
           name: imagens-verificadas
           path: imagens.tar
           retention-days: 1
   publicar:
     needs: verificar
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/atividade-extra-cicd' || github.ref == 'refs/heads/atividade-7-stripe-premium' || github.ref == 'refs/heads/atividade-10-girorural-no-ar')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/atividade-extra-cicd' || github.ref == 'refs/heads/atividade-7-stripe-premium' || github.ref == 'refs/heads/atividade-10-girorural-no-ar' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       contents: read
