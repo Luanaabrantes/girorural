@@ -2,6 +2,7 @@ name: CI/CD — imagens GHCR
 on:
   push:
   pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
