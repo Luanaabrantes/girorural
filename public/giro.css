@@ -140,3 +140,4 @@
 .listing-top{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
 .listing-thumb{width:160px;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#C9D9C6;flex:none;display:flex;align-items:center;justify-content:center;color:#24432F;font-size:13px}
 .listing-thumb img{width:100%;height:100%;object-fit:cover}
+.gcard .msg:empty{display:none}
