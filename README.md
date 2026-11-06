@@ -13,11 +13,11 @@
 
 | Conta | Como acessar | O que mostra |
 |---|---|---|
-| **Fazenda Boa Vista** (proprietário) | `fazendaboavista@girorural.local`, com a senha definida em `CATALOGO_PROPRIETARIO_SENHA` na stack | 33 máquinas anunciadas com fotos, pedidos recebidos para aprovar, Minha garagem |
+| **Fazenda Boa Vista** (proprietário) | `fazendaboavista@girorural.local` · senha `123456` | 33 máquinas anunciadas com fotos, pedidos recebidos para aprovar, Minha garagem |
 | Locatário | Crie uma conta em `/cadastro.html`; todo cadastro nasce `LOCATARIO` | Buscar, reservar, pagar e acompanhar a locação |
 | Novo anunciante | Na conta de locatário, **Habilitar modo anunciante** (`/anunciante.html`) | Vira `PROPRIETARIO` e passa a cadastrar máquinas |
 
-A conta e os anúncios da Fazenda Boa Vista são criados automaticamente quando a API sobe, por [`src/rural/catalogo.js`](src/rural/catalogo.js), a partir de [`database/catalogo-maquinas.json`](database/catalogo-maquinas.json).
+A conta e os anúncios da Fazenda Boa Vista são criados automaticamente quando a API sobe (a senha vem de `CATALOGO_PROPRIETARIO_SENHA` na stack), por [`src/rural/catalogo.js`](src/rural/catalogo.js), a partir de [`database/catalogo-maquinas.json`](database/catalogo-maquinas.json).
 
 **Roteiro de demonstração (5 minutos):** crie uma conta de locatário → abra um anúncio e peça a reserva com retirada para hoje → entre como Fazenda Boa Vista e aprove em **Minha garagem** → volte ao locatário, clique em **Pagar** e em **Simular pagamento aprovado** (o contato do dono é liberado) → como proprietário, clique em **Concluir locação**.
 
@@ -275,7 +275,7 @@ npm run docs:validate     # valida o contrato OpenAPI
 
 `git push` na `main` → o GitHub Actions ([`.github/workflows/cicd.yml`](.github/workflows/cicd.yml)) roda os testes, valida o OpenAPI, constrói as 4 imagens e as publica no GHCR com a tag `sha-<commit completo>`. No Portainer, na stack `girorural-luana-abrantes`, troca-se `IMAGE_TAG` para a nova tag e clica-se em **Update the stack**. Cada serviço tem `mem_limit: 1g`.
 
-**Variáveis da stack no Portainer** (nunca no repositório): banco (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`), sessão (`JWT_SECRET`), MinIO (`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`), e-mail (`MAIL_*`), Stripe (`STRIPE_*`, opcional) e catálogo (`CATALOGO_PROPRIETARIO_EMAIL`, `CATALOGO_PROPRIETARIO_SENHA`, `CATALOGO_INICIAL`, `PAGAMENTO_SIMULADO`).
+**Variáveis da stack no Portainer** (nunca no repositório): banco (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`), sessão (`JWT_SECRET`), MinIO (`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`), e-mail (`MAIL_*`), Stripe (`STRIPE_SECRET_KEY`, `STRIPE_LOCACAO_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` e `APP_BASE_URL`, opcionais) e catálogo (`CATALOGO_PROPRIETARIO_EMAIL`, `CATALOGO_PROPRIETARIO_SENHA`, `CATALOGO_INICIAL`, `PAGAMENTO_SIMULADO`).
 
 **Migrations em produção** são manuais, uma vez, com backup antes, pelo cliente MySQL apontando para o banco da disciplina, na ordem da [seção 4](#4-domínio-tabelas-migrations-e-seed). O seed não precisa de passo manual: a API o aplica ao subir.
 
