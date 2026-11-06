@@ -1,163 +1,287 @@
 # GiroRural
 
-Plataforma web para aproximar produtores rurais que oferecem máquinas e implementos daqueles que precisam alugá-los. O GiroRural apresenta anúncios, organiza pedidos de locação e, nos anúncios reais aprovados, recebe o pagamento de teste pelo Stripe Checkout.
+**Aluguel de máquinas agrícolas entre produtores: quem tem trator, colheitadeira ou implemento parado anuncia por diária, e quem precisa encontra perto de casa, pede a reserva, paga depois da aprovação e combina a retirada direto com o dono.**
 
-Esta branch prepara a Atividade 10 de Computação em Nuvem. **O sistema não está publicado pelo GiroRural nesta entrega.**
+🌐 **No ar:** https://luana-abrantes-isw055.lapps.studio
+📘 **API (Swagger):** https://luana-abrantes-isw055.lapps.studio/apidocs/
 
-## Funcionalidades implementadas
+> Projeto da disciplina ISW055 (Introdução à Computação em Nuvem), Fatec Pompeia, proposto pelo professor [@siriani](https://github.com/siriani).
+>
+> **Atividade 10, "Seu negócio no ar":** o GiroRural rodando na mesma stack do Portainer das atividades anteriores (`girorural-luana-abrantes`), no mesmo subdomínio e com limite de 1 GB por container. A arquitetura de microsserviços das atividades 1 a 8 foi reaproveitada inteira; o domínio (máquinas, anúncios e reservas) é novo.
 
-- Landing page pública, catálogo vindo da API, pesquisa por nome/marca/modelo, filtros por categoria, cidade e faixa de diária, e ordenação por preço.
-- Detalhes públicos com informações do equipamento, galeria de até 12 fotos, condições da locação e link para o perfil público do proprietário.
-- Cadastro/login. Cadastro público sempre recebe `LOCATARIO`; enviar `role=ADMIN` ou `role=PROPRIETARIO` no corpo não concede privilégio.
-- Meu perfil: edição de nome, nome de exibição, telefone, cidade, UF e descrição; upload, substituição e remoção da foto no MinIO. E-mail não é editável por esse fluxo.
-- Proprietários cadastram e editam equipamentos/anúncios, alteram seu estado, gerenciam fotos e consultam/aprovam/recusam solicitações.
-- Locatários solicitam, consultam e cancelam pedidos próprios antes da aprovação. O sistema calcula as diárias e o total no servidor; proprietários aprovam/recusam e locatários pagam locações aprovadas no Stripe Checkout de teste.
-- Checkout de assinatura Pro (`mode=subscription`) e checkout de locação (`mode=payment`) são rotas, metadados, eventos e estados financeiros separados. O redirecionamento do navegador nunca confirma pagamento; somente webhook assinado em modo de teste.
-- `ADMIN`, `PROPRIETARIO` e `LOCATARIO` são papéis separados. A API aplica propriedade no backend; acesso sem sessão retorna 401, papel inadequado 403 e recurso privado de outra conta 404.
-- Eventos de negócio são enviados ao `log-service` e persistidos em Redis Streams. Administradores consultam os eventos pelo painel/API administrativos.
-- Catálogo demonstrativo de 12 anúncios fictícios. O seed é manual, reexecutável e destinado a desenvolvimento; anúncios demonstrativos não aceitam reserva nem edição.
-- Plano gratuito limita a 2 anúncios ativos; plano Pro permite até 20 por assinatura Stripe em modo de teste. Checkout de locação não inclui Stripe Connect, repasse ao proprietário, cancelamento após pagamento ou reembolso automático.
+### Contas para testar
 
-## Estado da revisão — 04/11/2026
+| Conta | Como acessar | O que mostra |
+|---|---|---|
+| **Fazenda Boa Vista** (proprietário) | `fazendaboavista@girorural.local`, com a senha definida em `CATALOGO_PROPRIETARIO_SENHA` na stack | 33 máquinas anunciadas com fotos, pedidos recebidos para aprovar, Minha garagem |
+| Locatário | Crie uma conta em `/cadastro.html`; todo cadastro nasce `LOCATARIO` | Buscar, reservar, pagar e acompanhar a locação |
+| Novo anunciante | Na conta de locatário, **Habilitar modo anunciante** (`/anunciante.html`) | Vira `PROPRIETARIO` e passa a cadastrar máquinas |
 
-Branch local: `atividade-10-girorural-no-ar`. O histórico existente tinha 94 commits antes desta revisão; o checkout não tem remote Git configurado. A branch não foi enviada, integrada à `main` nem publicada no Portainer.
+A conta e os anúncios da Fazenda Boa Vista são criados automaticamente quando a API sobe, por [`src/rural/catalogo.js`](src/rural/catalogo.js), a partir de [`database/catalogo-maquinas.json`](database/catalogo-maquinas.json).
 
-Na última validação integrada local, a stack isolada ficou saudável; `/health` reportou MariaDB, autenticação, log-service e MinIO como `ok`. Foram observados 12 anúncios demonstrativos e um anúncio real de teste local com duas fotos no MinIO e uma reserva pendente. Esses dados pertencem ao banco e aos volumes locais ignorados e não fazem parte do seed versionado. Não use o anúncio de teste como oferta comercial.
+**Roteiro de demonstração (5 minutos):** crie uma conta de locatário → abra um anúncio e peça a reserva com retirada para hoje → entre como Fazenda Boa Vista e aprove em **Minha garagem** → volte ao locatário, clique em **Pagar** e em **Simular pagamento aprovado** (o contato do dono é liberado) → como proprietário, clique em **Concluir locação**.
 
-`npm test` e OpenAPI são verificações automatizadas; a validação de interface visual por automação de navegador não foi concluída nesta revisão. A ferramenta de UI não conseguiu determinar com segurança o URL da janela. Os passos manuais e as evidências restantes estão em [Evidências da Atividade 10](docs/evidencias/atividade-10/README.md).
+---
 
-## Evolução para produto (atividade 10)
+## Sumário
+1. [O que está no ar](#1-o-que-está-no-ar)
+2. [Requisitos da atividade 10](#2-requisitos-da-atividade-10)
+3. [Arquitetura](#3-arquitetura)
+4. [Domínio: tabelas, migrations e seed](#4-domínio-tabelas-migrations-e-seed)
+5. [Papéis e permissões (403)](#5-papéis-e-permissões-403)
+6. [Isolamento por usuário (404)](#6-isolamento-por-usuário-404)
+7. [Eventos de auditoria](#7-eventos-de-auditoria)
+8. [Upload no object storage](#8-upload-no-object-storage)
+9. [Como rodar](#9-como-rodar)
+10. [Deploy em produção](#10-deploy-em-produção)
+11. [Documentação](#11-documentação)
 
-Fluxo central completo e testado ponta a ponta em banco MariaDB local (38 verificações via API, além de `npm test`):
+---
 
-- **Papéis:** a conta nasce `LOCATARIO`. Em `/anunciante.html` a própria pessoa habilita o modo anunciante (`POST /api/auth/anunciante`) após aceitar os termos e completar telefone, cidade e UF; vira `PROPRIETARIO` sem intervenção do admin. O proprietário continua podendo alugar equipamentos de terceiros, nunca o próprio.
-- **Reserva:** observação opcional ao proprietário; recusa com motivo; `POST /api/reservas/:id/concluir` após pagamento confirmado; `/reserva.html?id=` mostra linha do tempo, resumo, ações por papel e libera telefone/e-mail das partes somente depois da aprovação.
-- **Administração (`/admin.html`):** indicadores (`GET /api/admin/resumo`), moderação de anúncios com motivo (`GET /api/admin/anuncios`, `PATCH /api/admin/anuncios/:id/moderacao`), consulta de reservas (`GET /api/admin/reservas`), usuários e auditoria com alerta de contas com várias ações negadas. Anúncio suspenso sai do catálogo e o dono não consegue reativá-lo até a liberação.
-- **Interface:** `public/tema.css` aplica a identidade do design (Inter, verde #1F6B3A, amarelo-colheita, selos de status com texto, foco visível) e `public/nav.js` monta o cabeçalho conforme o papel, com menu móvel.
-- **Migração:** `database/migracao-girorural-produto.sql` (aditiva, reexecutável), já incluída no Compose local como `11-girorural-produto.sql`. Em bancos existentes, aplique-a manualmente seguindo o procedimento seguro abaixo.
+## 1. O que está no ar
 
-Pagamento: com `STRIPE_SECRET_KEY` de teste e `STRIPE_LOCACAO_WEBHOOK_SECRET` configurados, o botão "Pagar" abre o Checkout de teste (cartão 4242 4242 4242 4242). Sem as chaves, a API responde 503 com orientação.
+| Tela | Rota | O que faz |
+|---|---|---|
+| Landing pública | `/` | Proposta de valor, categorias, máquinas em destaque, como funciona e o botão **Criar conta** |
+| Catálogo | `/anuncios.html` | Busca por nome, marca ou modelo; filtros por categoria, cidade e faixa de diária; ordenação por preço |
+| Detalhe do anúncio | `/anuncio.html?id=` | Galeria de fotos, ficha técnica, condições, calculadora de diárias e pedido de reserva |
+| Perfil público do proprietário | `/proprietario.html?id=` | Nome, cidade, apresentação e as máquinas anunciadas (sem e-mail nem telefone) |
+| Entrar · Criar conta · Esqueci a senha | `/login.html`, `/cadastro.html`, `/esqueci-senha.html` | Conta própria com JWT em cookie; recuperação de senha por e-mail com link de uso único |
+| Meu perfil | `/perfil.html` | Dados pessoais, localização, apresentação pública, foto (MinIO) e troca de senha |
+| Modo anunciante | `/anunciante.html` | O locatário aceita os termos, completa telefone, cidade e UF e vira proprietário |
+| Anunciar máquina | `/anunciar.html` | Assistente em 3 passos: máquina, preço e local, fotos (até 8) |
+| Minha garagem | `/painel.html` | Anúncios do proprietário (editar, pausar, fotos), pedidos recebidos e plano Pro |
+| Minhas reservas · Reserva | `/minhas-reservas.html`, `/reserva.html?id=` | Linha do tempo do pedido, ações por papel e contato liberado após a aprovação |
+| Pagamento | `/pagamento.html?reserva_id=` | Stripe Checkout (modo de teste) ou pagamento simulado aprovado/recusado |
+| Administração | `/admin.html` | Indicadores, moderação de anúncios, reservas, usuários e papéis, eventos de auditoria |
+| Créditos das fotos | `/creditos.html` | Autor e licença de cada foto do catálogo (Wikimedia Commons) |
 
-## Arquitetura
+Layout responsivo, que funciona no celular.
 
-O diagrama atualizado está em [docs/arquitetura-girorural.md](docs/arquitetura-girorural.md). A API Express também serve o frontend estático. A stack Portainer usa MariaDB externo; MinIO e Redis têm volumes persistentes. O nome de rede `catalogo-network` foi conservado no template para compatibilidade com a stack antiga; sua associação real no servidor ainda precisa ser conferida antes de redeploy.
+**Pagamento da locação:** o locatário só paga depois que o dono aprova, e a aprovação vale 24 horas. Com `STRIPE_SECRET_KEY` de teste configurada, o botão abre o Stripe Checkout (`mode=payment`), e a reserva só fica paga quando chega o webhook assinado. Sem Stripe, ou com `PAGAMENTO_SIMULADO=true` (padrão), a tela oferece **Simular pagamento aprovado/recusado**, que grava o mesmo registro em `locacao_pagamentos`. Nenhuma cobrança real acontece.
 
-## Banco de dados e migrações
+**Plano Pro do anunciante:** o plano gratuito permite 2 anúncios ativos e o Pro permite 20, por assinatura Stripe (`mode=subscription`) em modo de teste.
 
-O domínio principal tem três tabelas, todas InnoDB e ligadas à tabela existente `usuarios`:
+**Fora do escopo desta versão:** repasse automático ao proprietário (Stripe Connect), reembolso após pagamento e avaliações entre usuários.
 
-| Tabela | Conteúdo |
-| --- | --- |
-| `equipamentos` | Proprietário, nome, categoria, marca/modelo/ano opcionais, descrição e chave da foto principal. |
-| `anuncios` | Equipamento, proprietário, diária, cidade/UF, condições e estado. |
-| `reservas` | Anúncio, solicitante, período, estado e datas. |
+## 2. Requisitos da atividade 10
 
-`locacao_pagamentos` mantém tentativas de Checkout, valor/moeda, PaymentIntent e estado financeiro; `stripe_locacao_eventos` guarda apenas IDs/tipos para idempotência. Não armazena dados de cartão. O fim do período é exclusivo: representa o dia da devolução e não é cobrado; `DATEDIFF(fim,inicio)` produz a quantidade de diárias.
+| # | Requisito | Onde está |
+|---|---|---|
+| R1 | Stack aponta para o repositório novo | Stack `girorural-luana-abrantes` no Portainer, apontando para este repositório e para [`docker-compose.portainer.yml`](docker-compose.portainer.yml) |
+| R2 | ≥ 3 tabelas de domínio com FK, por migration + seed versionados | `equipamentos`, `anuncios`, `reservas` (mais `anuncio_imagens` e `locacao_pagamentos`) em [`database/migracao-girorural-issue1.sql`](database/migracao-girorural-issue1.sql) e nas migrations seguintes; seed em [`database/catalogo-maquinas.json`](database/catalogo-maquinas.json), aplicado por [`src/rural/catalogo.js`](src/rural/catalogo.js) |
+| R3 | CRUD do recurso principal | Equipamentos e anúncios: criar, listar, detalhar, editar e desativar, em [`src/rural/rotas.js`](src/rural/rotas.js) |
+| R4 | Telas de listar, criar, detalhe e editar | Catálogo, Anunciar máquina, Detalhe do anúncio e Minha garagem, em [`public/`](public) |
+| R5 | ≥ 3 papéis, ação proibida dá 403 mesmo pela API | `LOCATARIO`, `PROPRIETARIO` e `ADMIN`, mais o plano Pro. [Seção 5](#5-papéis-e-permissões-403); `exigir(...)` em [`src/rural/rotas.js`](src/rural/rotas.js) |
+| R6 | Isolamento por usuário: recurso de outro dá 403/404 | [Seção 6](#6-isolamento-por-usuário-404); as consultas filtram pelo dono na própria query |
+| R7 | Eventos de negócio no log-service | [Seção 7](#7-eventos-de-auditoria) |
+| R8 | Upload no MinIO ligado a um registro | Fotos do anúncio (`anuncio_imagens`) e foto de perfil. [Seção 8](#8-upload-no-object-storage) |
+| R9 | Landing pública com proposta de valor e cadastro | [`/`](https://luana-abrantes-isw055.lapps.studio), em [`public/index.html`](public/index.html) |
+| R10 | Nada do domínio anterior no código ou nas telas | Telas, rotas e serviços do catálogo de filmes removidos; a variável da API externa de filmes saiu do compose. Só o nome da rede Docker `catalogo-network` foi mantido, para não recriar a rede da stack |
 
-`anuncio_imagens` acrescenta a galeria na Etapa 3, preservando `equipamentos.imagem_chave` como referência compatível com anúncio de foto única. `perfis` pertence à funcionalidade anterior de perfil.
+Os testes automatizados (`npm test`, 103 casos) cobrem R3, R5, R6, R7 e R8: `test/rural-api.test.js`, `test/rural.test.js`, `test/locacao.test.js`, `test/admin.test.js`, `test/minio.test.js` e `test/perfil-api.test.js`. O CI também valida o contrato OpenAPI e constrói as quatro imagens antes de publicar.
 
-### Ordem para uma instalação do zero
+## 3. Arquitetura
 
-Primeiro confirme que a tabela `usuarios` e sua chave `id` já existem. O DDL original de `usuarios` não está neste repositório. A aplicação completa também pressupõe as tabelas/campos legados de autenticação, perfil e assinatura:
+```mermaid
+flowchart LR
+    U(["Navegador<br/>HTML + JS"])
 
-1. `database/migracao-atividade3.sql` — papel e tokens de recuperação, somente se ainda ausentes.
-2. `database/migracao-atividade6.sql` — tabela base `perfis`, somente se ainda ausente.
-3. `database/migracao-atividade7.sql` e `database/migracao-atividade7-periodo.sql` — tabelas/campos de assinatura Stripe, somente se a instalação os utiliza e ainda não os tem.
-4. `database/migracao-girorural-issue1.sql` — cria `equipamentos`, `anuncios` e `reservas`.
-5. `database/migracao-girorural-atividade10.sql` — acrescenta colunas, índices, backfill e FK do proprietário do anúncio.
-6. `database/migracao-perfil-usuarios.sql` — acrescenta campos de apresentação/contato à tabela existente `perfis`.
-7. `database/migracao-anuncios-informacoes.sql` — acrescenta o campo opcional de informações por categoria.
-8. `database/migracao-anuncios-galeria.sql` — cria `anuncio_imagens`.
-9. `database/migracao-locacao-stripe.sql` — acrescenta os snapshots financeiros das reservas e cria as tabelas de tentativa de pagamento e idempotência de webhook.
+    subgraph SaaS["SaaS: produtos de terceiros"]
+        STRIPE["Stripe<br/>checkout + webhook (teste)"]
+        SMTP["SMTP<br/>e-mail de recuperação"]
+    end
 
-As migrações novas são aditivas, mas não há tabela central de histórico de migrações. Antes de cada execução, verifique a estrutura com `SHOW CREATE TABLE` e compare-a com a versão esperada. `IF NOT EXISTS` torna partes reexecutáveis; não corrige uma tabela existente com estrutura divergente. `scripts/migrar-rural.js` aplica apenas as migrações 4 e 5 e recusa bancos externos: ele é uma ferramenta local, **não** um executor de produção. No Compose, os mounts de inicialização do MariaDB só rodam na criação de um volume vazio.
+    subgraph VM["VM da disciplina · Docker · stack no Portainer"]
+        subgraph NET["rede interna catalogo-network"]
+            API["<b>girorural-api</b> :3000<br/>Express + páginas estáticas<br/>anúncios, reservas, pagamento,<br/>perfis, admin<br/>ÚNICA porta publicada"]
+            AUTH["<b>auth-service</b> :3001<br/>usuários, login, JWT,<br/>papéis, reset de senha"]
+            LOG["<b>log-service</b> :3002<br/>auditoria"]
+            REDIS[("Redis<br/>Stream de auditoria")]
+            MINIO[("MinIO :9000<br/>fotos de anúncios e perfis")]
+        end
+    end
 
-`database/seed-girorural.sql` exige `@giro_owner_id` de um proprietário existente e pode criar/atualizar demonstrações marcadas como fictícias. Execute-o apenas em desenvolvimento. **Não aplique o seed em produção.**
+    DB[("MySQL remoto<br/>instância da disciplina")]
 
-### Procedimento seguro para produção — ainda não executado
-
-1. Obtenha aprovação e agende manutenção; suspenda escritores de aplicação.
-2. Confirme o servidor/schema corretos, engine InnoDB, versão MariaDB compatível e `SHOW CREATE TABLE usuarios`, `perfis`, `premium_assinaturas`, `equipamentos`, `anuncios` e `reservas`. Confirme `usuarios.id` como `INT` assinado, PK única e referenciada pelos FKs.
-3. Faça e verifique backup completo antes de alterar. Use um arquivo de opções com permissões restritas para credenciais, não argumentos de senha visíveis na linha de comando. Exemplo, substituindo placeholders localmente:
-
-   ```powershell
-   mariadb-dump --defaults-extra-file="<arquivo-seguro>" --single-transaction --routines --triggers --events <banco> > <caminho-seguro>\girorural-pre-migracao.sql
-   ```
-
-4. Aplique, uma por vez e na ordem acima, somente as migrações cuja pré-condição ainda não esteja satisfeita. Registre versão, checksum, operador e resultado em controle de mudança. Não execute o seed.
-5. Valide tabelas, colunas, índices, FKs e contagens; faça leitura de saúde e smoke tests antes de reabrir gravações.
-6. Em rollback de código, retorne à imagem anterior e mantenha as estruturas aditivas. Não remova tabelas nem use `DROP` como rollback. Restaure o backup somente com manutenção aprovada e serviços escritores parados.
-
-## Rotas principais
-
-| Área | Rotas | Acesso |
-| --- | --- | --- |
-| Catálogo | `GET /api/anuncios`, `GET /api/anuncios/:id` | Público; filtros `busca`, `cidade`, `categoria`, `diaria_min`, `diaria_max`, `ordenar`, paginação. |
-| Equipamentos | `POST /api/equipamentos`, `GET /api/equipamentos/meus`, `PUT/DELETE /api/equipamentos/:id` | `PROPRIETARIO`; exclusão é desativação lógica. |
-| Anúncios | `POST /api/anuncios`, `GET /api/anuncios/meus`, `PUT/DELETE /api/anuncios/:id` | `PROPRIETARIO`; DELETE desativa. |
-| Fotos | `POST /api/anuncios/:id/fotos`, `GET /api/anuncios/:id/fotos`, `GET/DELETE /api/anuncios/:id/fotos/:fotoId`, `PATCH /api/anuncios/:id/fotos/:fotoId/principal` | Leitura pública do ativo; alteração pelo dono. JPEG/PNG/WebP, até 5 MB por arquivo. |
-| Reservas | `POST /api/reservas`, `GET /api/reservas/minhas`, `GET /api/reservas/:id`, `POST /api/reservas/:id/cancelar` | `LOCATARIO`; consulta restrita às partes autorizadas. |
-| Reservas do proprietário | `GET /api/reservas/recebidas`, `PATCH /api/reservas/:id` | `PROPRIETARIO`. |
-| Pagamento de locação | `POST /api/locacao/reservas/:id/checkout`, `GET /api/locacao/reservas/:id/pagamento`, `POST /api/locacao/stripe/webhook` | Checkout `payment` de teste; pagamento só confirma por webhook assinado. Aprovação sem Checkout expira em 24 h; Checkout aberto fica retido até a expiração Stripe (35 min configurados). |
-| Perfil | `GET/PATCH /api/perfil/me`, `POST/DELETE /api/perfil/me/foto`, `GET /api/proprietarios/:id` | Perfil próprio autenticado; perfil público não devolve e-mail/telefone privado. |
-| Administração | `GET /api/admin/usuarios`, `PATCH /api/admin/usuarios/:id/role`, `GET /api/logs` | `ADMIN`. |
-
-OpenAPI público: `/apidocs/` e `/openapi/girorural.json`. Auth-service interno: `/apidocs/auth/`.
-
-## Execução e validação local
-
-Consulte `.env.example`, `auth-service/.env.example` e `log-service/.env.example`; copie para arquivos locais e preencha **somente credenciais de desenvolvimento**. Não comite `.env`, contas locais, backups ou dados de teste. A stack local usa `docker-compose.yml` com `docker-compose.local-dev.yml` e o projeto Compose `girorural-local-dev`, incluindo MariaDB isolado. Não use o banco externo/produção para testes.
-
-```powershell
-npm ci
-npm ci --prefix auth-service
-npm ci --prefix log-service
-npm test
-npm run docs:validate
+    U -- "HTTPS *.lapps.studio" --> API
+    U -. "redireciona para o checkout" .-> STRIPE
+    STRIPE -- "webhook assinado" --> API
+    API -- "Checkout Session" --> STRIPE
+    API -- "/api/auth/* (proxy)" --> AUTH
+    API -- "POST /logs" --> LOG
+    AUTH -- "POST /logs" --> LOG
+    LOG --> REDIS
+    API -- "upload e leitura das fotos" --> MINIO
+    AUTH -- "link de redefinição" --> SMTP
+    API -- "equipamentos, anúncios, reservas,<br/>pagamentos, perfis" --> DB
+    AUTH -- "usuarios, tokens" --> DB
 ```
 
-O laboratório MariaDB/Redis/MinIO é uma validação separada; testes unitários/mocks não a substituem. Status atual da publicação: pendente. A existência de health checks locais não equivale a deploy.
+| Serviço | Pasta · imagem (GHCR) | Responsabilidade |
+|---|---|---|
+| **girorural-api** | `src/` + `public/` · `girorural-api` | Porta de entrada pública: serve as telas, a API do negócio, perfis, pagamentos, admin e o Swagger; repassa `/api/auth/*` |
+| **auth-service** | `auth-service/` · `girorural-auth-service` | Cadastro, login, JWT, papéis, modo anunciante e redefinição de senha |
+| **log-service** | `log-service/` · `girorural-log-service` | Grava e devolve os eventos de auditoria (Redis Streams) |
+| **MinIO** | `minio/` · `girorural-minio` | Object storage S3 com bucket privado |
+| **Redis** | `redis:7-alpine` | Guarda a trilha de auditoria |
+| **MySQL** | fora da stack | Banco da disciplina, usado pela api e pelo auth-service |
 
-### Teste manual do Stripe de locação
+**Camadas de nuvem:** a VM da disciplina é **IaaS**; os containers, o banco da disciplina e o GitHub Actions são **PaaS** (eu entrego a imagem e o workflow, e a plataforma executa); Stripe, GitHub/GHCR e o proxy HTTPS do domínio são **SaaS**.
 
-1. Configure apenas uma chave `sk_test_` local em `STRIPE_SECRET_KEY`, `APP_BASE_URL=http://localhost:3000` e um segredo de webhook independente em `STRIPE_LOCACAO_WEBHOOK_SECRET`. Preserve `STRIPE_WEBHOOK_SECRET` para o endpoint de assinaturas Pro.
-2. Aponte um endpoint de webhook Stripe de teste para `http://localhost:3000/api/locacao/stripe/webhook` e assine pelo menos `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` e `checkout.session.expired`. Stripe Checkout e os webhooks precisam de credenciais autorizadas da própria conta de teste; não copie os exemplos publicados de chaves.
-3. Com contas locais separadas de proprietário e locatário, use um anúncio real local (não o catálogo de exemplos). O proprietário aprova o pedido; o locatário abre “Minhas reservas” e seleciona “Pagar com Stripe”.
-4. Use os dados de cartão de teste que a documentação oficial Stripe indica para sua conta. Stripe informa que testes automatizados não devem substituir a verificação manual da interface Checkout e oferece cartões de teste para simular resultados; consulte [testes automatizados Stripe](https://docs.stripe.com/automated-testing). A página de retorno consulta o backend e não é evidência de pagamento.
-5. Verifique o evento no Stripe em modo de teste, o webhook validado, o estado financeiro em Minhas reservas e a trilha de auditoria. A aplicação não transfere fundos: uma futura liquidação ao proprietário exige desenho separado de Stripe Connect, obrigações financeiras, política de cancelamento e reembolso.
+## 4. Domínio: tabelas, migrations e seed
 
-## Portainer — configuração encontrada e preparação
+```mermaid
+erDiagram
+    USUARIOS ||--o{ EQUIPAMENTOS : "proprietario_id (FK)"
+    EQUIPAMENTOS ||--|| ANUNCIOS : "equipamento_id (FK, único)"
+    USUARIOS ||--o{ ANUNCIOS : "proprietario_id (FK)"
+    ANUNCIOS ||--o{ ANUNCIO_IMAGENS : "anuncio_id (FK)"
+    ANUNCIOS ||--o{ RESERVAS : "anuncio_id (FK)"
+    USUARIOS ||--o{ RESERVAS : "solicitante_id (FK)"
+    RESERVAS ||--o{ LOCACAO_PAGAMENTOS : "reserva_id (FK)"
 
-Foi inspecionado somente o arquivo versionado `docker-compose.portainer.yml` e o workflow `.github/workflows/cicd.yml`; a configuração viva do Portainer não foi consultada nem alterada. O template descreve uma stack com API em `8216:3000`, auth-service em `3001` interno, log-service em `3002` interno, MinIO em `9000`, Redis em `6379` e MariaDB externo. Os volumes nomeados são `minio-data` e `audit-redis-data`. A rede declarada ainda se chama `catalogo-network`, com subnet `10.88.0.0/24`; preserve-a somente depois de confirmar a rede realmente associada à stack e ausência de conflito. O subdomínio documentado é `https://luana-abrantes-isw055.lapps.studio`; Compose não contém regra/proxy para esse host, então o encaminhamento do proxy para a porta 8216 precisa ser verificado na configuração viva.
+    EQUIPAMENTOS {
+        int id PK
+        int proprietario_id FK
+        varchar nome
+        varchar categoria
+        varchar marca
+        varchar modelo
+        int ano
+        text descricao
+        varchar imagem_chave "foto principal"
+        enum estado "ativo | inativo"
+    }
+    ANUNCIOS {
+        int id PK
+        int equipamento_id FK
+        int proprietario_id FK
+        decimal diaria
+        varchar cidade
+        char uf
+        text condicoes
+        enum estado "rascunho | ativo | inativo | arquivado"
+    }
+    ANUNCIO_IMAGENS {
+        int id PK
+        int anuncio_id FK
+        int proprietario_id FK
+        varchar chave "chave no MinIO"
+    }
+    RESERVAS {
+        int id PK
+        int anuncio_id FK
+        int solicitante_id FK
+        date inicio
+        date fim "dia da devolução, não cobrado"
+        decimal valor_total
+        enum estado "solicitada | confirmada | recusada | cancelada | concluida"
+    }
+    LOCACAO_PAGAMENTOS {
+        int id PK
+        int reserva_id FK
+        decimal valor
+        enum status "criando | checkout_aberto | pendente | pago | falho | expirado"
+    }
+```
 
-Imagens referenciadas pelo template:
+- **DDL versionado** em [`database/`](database), aplicado nesta ordem: `migracao-girorural-issue1.sql` (cria as três tabelas), `migracao-girorural-atividade10.sql` (colunas, índices e FK do proprietário), `migracao-perfil-usuarios.sql`, `migracao-anuncios-informacoes.sql`, `migracao-anuncios-galeria.sql`, `migracao-locacao-stripe.sql` e `migracao-girorural-produto.sql`. Todas são aditivas e podem rodar de novo (`IF NOT EXISTS`).
+- **Regras no banco:** as FKs são `RESTRICT`, então não dá para apagar um usuário ou anúncio que tenha reservas. "Excluir" na API é desativação lógica (`estado='inativo'`). `CHECK` garante diária positiva, UF válida e `fim >= inicio`.
+- **Regras na API:** o valor total é calculado no servidor (diária × diárias); duas reservas aprovadas não podem se sobrepor no mesmo anúncio; ninguém reserva o próprio anúncio.
+- **Seed:** ao subir, a API garante a conta **Fazenda Boa Vista** e os 33 anúncios de [`database/catalogo-maquinas.json`](database/catalogo-maquinas.json) (tratores, colheitadeiras, plantadeiras, pulverizadores, preparo do solo, transporte e distribuidores). Pode rodar de novo: só cria o que ainda não existe. Desliga com `CATALOGO_INICIAL=false`.
 
-- `ghcr.io/luanaabrantes/girorural-api:${IMAGE_TAG}`
-- `ghcr.io/luanaabrantes/girorural-auth-service:${IMAGE_TAG}`
-- `ghcr.io/luanaabrantes/girorural-log-service:${IMAGE_TAG}`
-- `ghcr.io/luanaabrantes/girorural-minio:${IMAGE_TAG}`
+## 5. Papéis e permissões (403)
 
-O valor esperado é `IMAGE_TAG=sha-<SHA completo do commit>`. O workflow constrói quatro imagens, mas só publica em push para `atividade-extra-cicd` e `atividade-7-stripe-premium`; a branch `atividade-10-girorural-no-ar` está fora dessas condições e não tem imagens confirmadas no GHCR. Portanto, o fluxo de publicação precisa ser aprovado e preparado para gerar as quatro tags desta entrega antes de o Portainer poder utilizá-las. `latest` é publicado apenas para `atividade-extra-cicd`; não use `latest` para esta entrega.
+O papel vem **só** do JWT emitido pelo auth-service, e quem barra é a API (`exigir(...)` em [`src/rural/rotas.js`](src/rural/rotas.js) e `exigirAdmin` em [`src/rural/admin.js`](src/rural/admin.js)); as telas apenas escondem botões. O admin modera, mas não age no lugar de proprietários e locatários. O cadastro público sempre cria `LOCATARIO`: mandar `role=ADMIN` no corpo não concede nada.
 
-O template não define `mem_limit` nem `deploy.resources.limits.memory`. O limite de **1 GB por container** precisa ser confirmado na stack viva e representado/aplicado no formato que essa instalação do Portainer usa antes de atualizar. A configuração real de limite, nome da stack, repositório/branch configurados e credenciais do registry não são verificáveis por este checkout.
+| Ação | Sem sessão | `LOCATARIO` | `PROPRIETARIO` | `ADMIN` |
+|---|---|---|---|---|
+| Ver catálogo e anúncios ativos | ✅ | ✅ | ✅ | ✅ |
+| Pedir reserva, pagar, cancelar antes da aprovação | **401** | ✅ | ✅ (de outros donos) | **403** |
+| Cadastrar/editar equipamento e anúncio, enviar fotos | **401** | **403** | ✅ (até 2 ativos; 20 no Pro) | **403** |
+| Aprovar, recusar e concluir reserva | **401** | **403** | ✅ (só dos próprios anúncios) | **403** |
+| `/api/admin/*` (usuários, papéis, moderação, reservas, resumo) e `/api/logs` | **401** | **403** | **403** | ✅ |
 
-### Procedimento após os bloqueios e aprovação
+- O locatário vira proprietário sozinho, pelo **modo anunciante** (`POST /api/auth/anunciante`), depois de aceitar os termos e completar telefone, cidade e UF.
+- Anúncio suspenso pelo admin sai do catálogo, e o dono não consegue reativá-lo até a liberação.
+- O admin não pode remover o próprio papel nem o último admin.
+- Toda ação barrada gera o evento `ACAO_NEGADA` no log-service.
 
-1. Confirmar no Portainer, em modo de leitura, o nome da stack original, Git URL/branch/Compose path, porta/proxy/subdomínio, rede/subnet, volumes, limites de memória e variáveis atuais. Não criar stack nova.
-2. Aprovar e executar backup/ordem de migrações acima no banco externo; seed permanece desativado.
-3. Aprovar a publicação de imagens. Atualizar o workflow ou usar um fluxo de release aprovado para construir e publicar as quatro imagens a partir do commit revisado. Verificar os SHA labels e o acesso GHCR. Este workflow não está pronto para publicar a branch atual.
-4. Na stack original, selecionar o repositório `https://github.com/Luanaabrantes/girorural.git`, a branch/commit aprovado e `docker-compose.portainer.yml`; isso pressupõe que a branch tenha sido enviada ao repositório, o que não ocorreu nesta etapa.
-5. Definir `IMAGE_TAG=sha-<SHA>` igual para os quatro serviços. Preservar os valores existentes das variáveis DB (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`), sessão (`JWT_SECRET`), MinIO (`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`), correio (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM`) e Stripe (`STRIPE_*`, quando habilitado). Não imprimir nem copiar secrets para documentação.
-6. Manter o mapeamento 8216:3000, proxy/subdomínio, mesma stack, rede confirmada, volumes e limite 1 GB. Atualizar/redeploy somente após aprovação; nunca usar `down -v` nem remover volumes.
-7. Conferir health checks de API/auth/log/MinIO/Redis, acesso ao DB, catálogo, login, permissões, reserva, auditoria, MinIO e o subdomínio. Capturar a sétima evidência somente após esses checks reais.
+## 6. Isolamento por usuário (404)
 
-## Pendências e limites
+Toda consulta privada filtra pelo dono **na query** (`proprietario_id` ou `solicitante_id` vindo do JWT), nunca pela tela. Recurso de outra pessoa responde **`404`**, como se não existisse (um `403` revelaria que o ID existe):
 
-- Revisão visual manual no navegador e captura dos sete prints ainda necessárias; ver checklist de evidências.
-- Configuração viva do Portainer, subdomínio/proxy, branch/repositório, limites de 1 GB, rede e GHCR ainda precisam de confirmação manual.
-- Workflow não publica a branch atual; imagens SHA desta branch não foram confirmadas.
-- A stack local tem MariaDB integrado; Portainer mantém MariaDB externo. As migrações de produção ainda não foram executadas.
-- Relatórios Pro de locações não fazem parte do escopo implementado.
-- `catalogo-network` permanece como nome operacional legado para compatibilidade com a stack, embora telas, rotas e serviços de domínio tenham sido substituídos pelo GiroRural. Não renomeie sem verificar a configuração viva.
+- `PUT/DELETE /api/equipamentos/:id` e `/api/anuncios/:id` de outro proprietário → `404`;
+- fotos de anúncio de outro proprietário (enviar, remover, definir principal) → `404`;
+- `GET /api/reservas/:id` só responde para as duas partes da reserva; para qualquer outra conta → `404`;
+- `PATCH /api/reservas/:id` (aprovar/recusar) e `/concluir` só para o dono do anúncio → `404`;
+- pagamento de reserva de outra pessoa → `404`;
+- o perfil público (`/api/proprietarios/:id`) nunca devolve e-mail nem telefone; o contato só aparece em `/reserva.html` depois da aprovação.
 
-URL publicada do GiroRural: **não publicada nesta etapa**.
+Testes: casos de outro usuário em `test/rural-api.test.js`, `test/rural.test.js` e `test/locacao.test.js`.
+
+## 7. Eventos de auditoria
+
+A api e o auth-service mandam `POST /logs` para o log-service. Se ele estiver fora, a ação do usuário continua. Cada evento tem `usuario_id`, `acao`, alvo, data (UTC) e IP. Só o admin consulta (`GET /api/logs` ou a aba **Auditoria** em `/admin.html`), que também destaca contas com muitas ações negadas.
+
+| Evento | Quando |
+|---|---|
+| `EQUIPAMENTO_CADASTRADO`, `EQUIPAMENTO_ATUALIZADO`, `EQUIPAMENTO_DESATIVADO` | CRUD de equipamento |
+| `ANUNCIO_CRIADO`, `ANUNCIO_ATUALIZADO`, `ANUNCIO_DESATIVADO` | CRUD de anúncio |
+| `FOTOS_ANUNCIO_ADICIONADAS`, `FOTO_ANUNCIO_REMOVIDA`, `FOTO_PRINCIPAL_ATUALIZADA`, `FOTO_EQUIPAMENTO_ENVIADA` | Fotos no MinIO |
+| `RESERVA_SOLICITADA`, `RESERVA_APROVADA`, `RESERVA_RECUSADA`, `RESERVA_CANCELADA`, `RESERVA_CONCLUIDA` | Ciclo da reserva |
+| `LOCACAO_CHECKOUT_INICIADO`, `LOCACAO_PAGA`, `LOCACAO_PAGAMENTO_FALHO`, `LOCACAO_APROVACAO_EXPIRADA` | Pagamento da locação |
+| `ANUNCIO_SUSPENSO`, `ANUNCIO_LIBERADO`, `ROLE_ALTERADA` | Moderação e papéis (admin) |
+| `ANUNCIANTE_HABILITADO` | Locatário virou proprietário |
+| `LOGIN`, `LOGOUT`, `PERFIL_ATUALIZADO`, `FOTO_PERFIL_ATUALIZADA`, `FOTO_PERFIL_REMOVIDA` | Conta e perfil |
+| `ACAO_NEGADA` | Toda ação barrada com 403 |
+
+## 8. Upload no object storage
+
+As **fotos do anúncio** ficam ligadas ao anúncio:
+
+1. `POST /api/anuncios/:id/fotos` (multipart, campo `fotos`): até **8 fotos** por envio e **12 por anúncio**, JPEG, PNG ou WebP de até **5 MB** cada. Só o dono do anúncio envia.
+2. A imagem é decodificada e regravada no servidor (o que descarta EXIF e recusa arquivo que não seja imagem de verdade) e vai para o bucket privado na chave `anuncios/{usuario_id}/{uuid}.{ext}`, gerada pelo servidor. O banco guarda só a chave (`anuncio_imagens`).
+3. O navegador nunca fala com o MinIO: `GET /api/anuncios/:id/fotos/:fotoId` passa pela API, que confere se o anúncio está ativo ou é do próprio dono.
+4. A primeira foto vira a principal (`equipamentos.imagem_chave`), e o dono pode trocar a principal ou remover fotos.
+
+A **foto de perfil** segue o mesmo caminho (`POST /api/perfil/me/foto`, chave `perfis/{usuario_id}/{uuid}`).
+
+As fotos do catálogo inicial têm licença livre (Wikimedia Commons) e ficam em [`public/imagens/catalogo/maquinas/`](public/imagens/catalogo/maquinas), com autor e licença em `manifest.json` e na página `/creditos.html`.
+
+## 9. Como rodar
+
+### Tudo com Docker Compose (recomendado)
+
+```bash
+cp .env.example .env    # preencha JWT_SECRET, MINIO_*, MAIL_* e, se quiser, STRIPE_* de teste
+docker compose -f docker-compose.yml -f docker-compose.local-dev.yml -p girorural-local-dev up -d --build
+```
+
+- Site e API em http://localhost:3000 (Swagger em `/apidocs/`; auth-service em `/apidocs/auth/`).
+- O Compose local inclui um MariaDB isolado, que recebe as migrations de `database/` no primeiro boot. O catálogo da Fazenda Boa Vista é criado quando a API sobe; defina `CATALOGO_PROPRIETARIO_SENHA` no `.env` para entrar nessa conta.
+- Só a api publica porta; auth-service, log-service, Redis e MinIO ficam na rede interna.
+
+### Testes
+
+```bash
+npm ci && npm ci --prefix auth-service && npm ci --prefix log-service
+npm test                  # api, auth e log (node:test, banco e serviços simulados)
+npm run docs:validate     # valida o contrato OpenAPI
+```
+
+## 10. Deploy em produção
+
+`git push` na `main` → o GitHub Actions ([`.github/workflows/cicd.yml`](.github/workflows/cicd.yml)) roda os testes, valida o OpenAPI, constrói as 4 imagens e as publica no GHCR com a tag `sha-<commit completo>`. No Portainer, na stack `girorural-luana-abrantes`, troca-se `IMAGE_TAG` para a nova tag e clica-se em **Update the stack**. Cada serviço tem `mem_limit: 1g`.
+
+**Variáveis da stack no Portainer** (nunca no repositório): banco (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`), sessão (`JWT_SECRET`), MinIO (`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`), e-mail (`MAIL_*`), Stripe (`STRIPE_*`, opcional) e catálogo (`CATALOGO_PROPRIETARIO_EMAIL`, `CATALOGO_PROPRIETARIO_SENHA`, `CATALOGO_INICIAL`, `PAGAMENTO_SIMULADO`).
+
+**Migrations em produção** são manuais, uma vez, com backup antes, pelo cliente MySQL apontando para o banco da disciplina, na ordem da [seção 4](#4-domínio-tabelas-migrations-e-seed). O seed não precisa de passo manual: a API o aplica ao subir.
+
+## 11. Documentação
+
+- [Documentação do sistema](DOCUMENTACAO.md): especificação, regras de negócio e modelo de dados.
+- [Arquitetura](docs/arquitetura-girorural.md) e [modelo de dados e isolamento](docs/modelo-dados-isolamento.md).
+- [Relatório P1](docs/P1_ISW055_Luana_Abrantes.pdf): atividades 1 a 8.
+- API: `/apidocs/` (Swagger) na api; contratos em [`docs/openapi/`](docs/openapi).
