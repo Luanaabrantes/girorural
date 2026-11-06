@@ -1,106 +1,29 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>Redefinir senha · GiroRural</title>
-
-    <link
-        rel="stylesheet"
-        href="rural.css"
-    >
-<link rel="stylesheet" href="tema.css"></head>
-
-<body class="auth-page">
-
-    <main class="auth-card">
-
-        <div class="auth-title">
-
-            <h1>
-                GiroRural
-            </h1>
-
-            <p>
-                Aluguel de máquinas e implementos agrícolas
-            </p>
-
-        </div>
-
-
-        <h2>
-            Redefinir senha
-        </h2>
-
-
-        <form id="formRedefinirSenha">
-
-            <div class="form-group">
-
-                <label for="senha">
-                    Nova senha
-                </label>
-
-                <input
-                    type="password"
-                    id="senha"
-                    placeholder="Digite sua nova senha"
-                    autocomplete="new-password"
-                    required
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label for="confirmarSenha">
-                    Confirmar nova senha
-                </label>
-
-                <input
-                    type="password"
-                    id="confirmarSenha"
-                    placeholder="Digite novamente a nova senha"
-                    autocomplete="new-password"
-                    required
-                >
-
-            </div>
-
-
-            <button
-                type="submit"
-                class="btn-auth"
-            >
-                Alterar senha
-            </button>
-
-        </form>
-
-
-        <p id="mensagem"></p>
-
-
-        <div class="auth-footer">
-
-            <a href="/login.html">
-                Voltar para o login
-            </a>
-
-        </div>
-
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Redefinir senha · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+  <style>.mensagem-erro{color:#9B2A22;font-size:15px}.mensagem-sucesso{color:#1D6B3D;font-size:15px}</style>
+</head>
+<body class="g" style="margin:0">
+  <div class="split">
+    <main style="flex:1 1 520px;display:flex;flex-direction:column;padding:40px clamp(16px,6vw,96px);gap:40px">
+      <a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a>
+      <form id="formRedefinirSenha" style="width:100%;max-width:420px;margin:auto 0;display:flex;flex-direction:column;gap:20px">
+        <div style="display:flex;flex-direction:column;gap:8px"><h1 style="font-size:32px;font-weight:700;letter-spacing:-.02em">Criar nova senha</h1><p class="mu" style="font-size:16px">Escolha uma senha com 6 ou mais caracteres, misturando letras e números.</p></div>
+        <label class="lb">Nova senha<input class="in" id="senha" type="password" minlength="6" autocomplete="new-password" required></label>
+        <label class="lb">Confirmar nova senha<input class="in" id="confirmarSenha" type="password" autocomplete="new-password" required></label>
+        <button class="btn bp" type="submit" style="width:100%;min-height:48px">Salvar nova senha</button>
+        <p id="mensagem" role="status" aria-live="polite"></p>
+        <p style="font-size:15px;text-align:center"><a href="/login.html" style="font-weight:600">Voltar para o login</a></p>
+      </form>
     </main>
-
-
-    <script src="redefinir-senha.js"></script>
-
-<script src="nav.js"></script></body>
-
+    <aside class="foto-campo" style="flex:1 1 480px;min-height:420px;padding:56px;display:flex;flex-direction:column;justify-content:flex-end;gap:20px">
+      <p style="margin:0;font-size:24px;line-height:1.4;font-weight:600;max-width:520px;color:#fff">Tratores, colheitadeiras e implementos de produtores da sua região, com reserva por diária e aprovação do proprietário.</p>
+    </aside>
+  </div>
+  <script src="redefinir-senha.js"></script>
+</body>
 </html>

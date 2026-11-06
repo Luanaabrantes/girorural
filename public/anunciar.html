@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Anuncie sua máquina agrícola no GiroRural em poucos passos.">
+  <title>Anunciar máquina · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g" data-login="obrigatorio">
+  <header class="top"><a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a><nav></nav></header>
+  <main class="wrap" style="max-width:880px;padding-top:32px;padding-bottom:80px;display:flex;flex-direction:column;gap:24px">
+    <nav aria-label="Você está em" style="display:flex;gap:8px;font-size:14px;flex-wrap:wrap"><a href="/painel.html">Minha garagem</a><span class="mu">/</span><span class="mu">Anunciar máquina</span></nav>
+    <div style="display:flex;flex-direction:column;gap:6px"><h1 style="font-size:32px;font-weight:700;letter-spacing:-.02em">Anunciar máquina</h1><p class="mu" style="font-size:16px">Preencha os dados, publique e depois adicione as fotos. Leva uns 3 minutos.</p></div>
+    <ol class="passos" aria-label="Etapas"><li class="atual" id="p1">1 · Máquina</li><li id="p2">2 · Preço e local</li><li id="p3">3 · Fotos</li></ol>
+    <p id="status" class="msg" role="status" aria-live="polite"></p>
+    <form id="form" class="gcard sec-card" novalidate hidden>
+      <fieldset id="etapa1" class="etapa">
+        <legend class="h2">Sobre a máquina</legend>
+        <label class="lb">Categoria<select class="in" name="categoria" id="categoria" required><option value="">Escolha a categoria</option></select></label>
+        <div class="grade">
+          <label class="lb">Marca<input class="in" name="marca" maxlength="100" list="marcas" placeholder="Ex.: John Deere" required></label>
+          <label class="lb">Modelo<input class="in" name="modelo" maxlength="120" placeholder="Ex.: 6110J" required></label>
+          <label class="lb">Ano (opcional)<input class="in" name="ano" type="number" min="1950" inputmode="numeric" placeholder="Ex.: 2019"></label>
+        </div>
+        <datalist id="marcas"><option>John Deere</option><option>Valtra</option><option>New Holland</option><option>Case IH</option><option>Massey Ferguson</option><option>Jacto</option><option>Tatu Marchesan</option><option>Baldan</option><option>Stara</option><option>Kuhn</option></datalist>
+        <label class="lb">Título do anúncio<input class="in" name="nome" maxlength="150" required aria-describedby="nomeAjuda"><span id="nomeAjuda" class="mu" style="font-size:13px;font-weight:400">Sugerimos a partir da categoria, marca e modelo. Pode ajustar.</span></label>
+        <label class="lb">Descrição<textarea class="in area" name="descricao" maxlength="5000" rows="4" placeholder="Estado de conservação, horas de uso, o que acompanha, se precisa de operador…"></textarea></label>
+        <label class="lb">Ficha técnica (opcional)<textarea class="in area" name="informacoes_adicionais" maxlength="3000" rows="3" placeholder="Uma informação por linha, por exemplo: Potência: 110 cv"></textarea></label>
+        <div class="sec-acoes"><button class="btn bp" type="button" id="ir2">Continuar</button></div>
+      </fieldset>
+      <fieldset id="etapa2" class="etapa" hidden>
+        <legend class="h2">Preço e local de retirada</legend>
+        <div class="grade">
+          <label class="lb">Valor da diária (R$)<input class="in" name="diaria" type="number" min="1" step="0.01" inputmode="decimal" placeholder="Ex.: 850" required></label>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:16px">
+          <label class="lb">Cidade<input class="in" name="cidade" maxlength="120" autocomplete="address-level2" required></label>
+          <label class="lb">UF<select class="in" name="uf" id="uf" required><option value="">—</option></select></label>
+        </div>
+        <label class="lb">Condições de locação<textarea class="in area" name="condicoes" maxlength="5000" rows="3" placeholder="Ex.: mínimo de 2 diárias; frete por conta do locatário; operador opcional."></textarea></label>
+        <label style="display:flex;gap:10px;align-items:center;font-size:15px"><input type="checkbox" name="rascunho" style="width:20px;height:20px;accent-color:#1F6B3A"> Salvar como rascunho (não aparece no catálogo ainda)</label>
+        <p id="limite" class="mu" style="font-size:14px"></p>
+        <div class="sec-acoes" style="justify-content:space-between"><button class="btn bt" type="button" id="voltar1">Voltar</button><button class="btn bp" type="submit" id="publicar">Publicar anúncio</button></div>
+      </fieldset>
+    </form>
+    <section id="etapa3" class="gcard sec-card" hidden>
+      <h2 class="h2">Adicione fotos</h2>
+      <p class="mu" style="font-size:15px">Anúncios com fotos recebem muito mais pedidos. Envie até 8 imagens JPG, PNG ou WebP de até 5 MB. A primeira vira a foto principal.</p>
+      <label class="soltar" for="fotos" tabindex="0" id="soltar"><b>Escolher fotos</b><span class="mu">ou arraste para cá</span><input id="fotos" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
+      <div id="previas" class="previas"></div>
+      <p id="fotosMsg" class="msg" role="status" aria-live="polite"></p>
+      <div class="sec-acoes" style="justify-content:space-between;flex-wrap:wrap;gap:12px"><a class="btn bt" href="/painel.html">Pular por enquanto</a><span style="display:flex;gap:12px;flex-wrap:wrap"><a class="btn bo" id="verAnuncio" href="#">Ver anúncio</a><a class="btn bp" href="/painel.html">Concluir</a></span></div>
+    </section>
+  </main>
+  <script src="vitrine.js"></script>
+  <script src="anunciar.js"></script>
+  <script src="nav.js"></script>
+</body>
+</html>

@@ -10,6 +10,17 @@
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>'
   };
 
+  // Fotos de catálogo com licença livre exigem crédito ao autor (Wikimedia Commons).
+  function creditoFoto(a) {
+    const p = el('p', { class: 'mu', style: 'font-size:12px;margin:-12px 0 0' });
+    const m = /\/imagens\/catalogo\/maquinas\/([a-z0-9-]+\.(?:jpg|png|webp))$/.exec(a.foto_url || '');
+    if (!m) return p;
+    fetch('/imagens/catalogo/maquinas/manifest.json').then(r => r.ok ? r.json() : []).then(lista => {
+      const c = lista.find(x => x.arquivo === m[1]); if (!c) return;
+      p.append('Foto ilustrativa: ', c.autor || 'autor desconhecido', ' · ', el('a', { href: c.licenca_url || c.fonte, target: '_blank', rel: 'noopener' }, c.licenca), ' · ', el('a', { href: c.fonte, target: '_blank', rel: 'noopener' }, 'Wikimedia Commons'));
+    }).catch(() => {});
+    return p;
+  }
   function galeria(a) {
     const fotos = (Array.isArray(a.fotos) && a.fotos.length ? a.fotos : (a.foto_url ? [{ foto_url: a.foto_url, principal: true }] : []))
       .slice().sort((x, y) => (y.principal ? 1 : 0) - (x.principal ? 1 : 0));
@@ -147,7 +158,7 @@
         if (outros.length) { semelhantes.replaceChildren(...outros.map(o => cardMaquina(o, { altura: 140, compacto: true }))); blocoSemelhantes.hidden = false; }
       }).catch(() => {});
 
-      root.replaceChildren(trilha, cabeca, galeria(a), el('div', { style: 'display:flex;flex-wrap:wrap;gap:48px;align-items:flex-start;margin-top:16px' }, conteudo, reserva(a, usuario)));
+      root.replaceChildren(trilha, cabeca, galeria(a), creditoFoto(a), el('div', { style: 'display:flex;flex-wrap:wrap;gap:48px;align-items:flex-start;margin-top:16px' }, conteudo, reserva(a, usuario)));
       root.hidden = false; statusEl.remove();
     } catch (e) { statusEl.textContent = e.message; }
   }

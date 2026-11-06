@@ -9,6 +9,8 @@ const { acessoValido } = require('../premiumPeriodo');
 const papelsValidos = new Set(['ADMIN', 'PROPRIETARIO', 'LOCATARIO']);
 const papel = role => ({ admin: 'ADMIN', usuario: 'LOCATARIO', ADMIN: 'ADMIN', PROPRIETARIO: 'PROPRIETARIO', LOCATARIO: 'LOCATARIO' }[role] || role);
 const ehDemonstrativo = descricao => typeof descricao === 'string' && descricao.startsWith('[DEMO FICTÍCIO]');
+// Fotos de catálogo (licença livre) ficam no próprio site em /imagens/catalogo/; o restante vem do MinIO.
+const fotoEstatica = chave => typeof chave === 'string' && /^catalogo\/maquinas\/[a-z0-9-]+\.(jpg|png|webp)$/.test(chave) ? `/imagens/${chave}` : null;
 const erro = (status, mensagem) => Object.assign(new Error(mensagem), { status });
 const id = valor => {
   if (!/^[1-9]\d*$/.test(String(valor)) || !Number.isSafeInteger(Number(valor))) throw erro(400, 'Identificador inválido.');
@@ -142,6 +144,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
     if (!rows.length || !rows[0].imagem_chave) throw erro(404, 'Imagem não encontrada.');
     const row = rows[0], publico = row.anuncio_estado === 'ativo' && row.equipamento_estado === 'ativo';
     if (!publico && (!req.usuario || req.usuario.id !== row.proprietario_id)) throw erro(404, 'Imagem não encontrada.');
+    if (fotoEstatica(row.imagem_chave)) return res.redirect(302, fotoEstatica(row.imagem_chave));
     try { res.set('Content-Type', row.imagem_chave.endsWith('.jpg') ? 'image/jpeg' : row.imagem_chave.endsWith('.png') ? 'image/png' : 'image/webp'); res.set('Cache-Control', publico ? 'public, max-age=300' : 'private, no-store'); (await storage.lerFotoAnuncio(row.imagem_chave)).on('error', () => { if (!res.headersSent) res.status(503).end(); }).pipe(res); }
     catch { throw erro(503, 'Armazenamento de imagens indisponível.'); }
   }));
@@ -200,6 +203,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
       const fotoId=id(req.params.fotoId),[fotos]=await db.execute('SELECT chave FROM anuncio_imagens WHERE id=? AND anuncio_id=?',[fotoId,anuncioId]);
       if(!fotos.length)throw erro(404,'Foto não encontrada.');chave=fotos[0].chave;
     }
+    if(fotoEstatica(chave))return res.redirect(302,fotoEstatica(chave));
     try{res.set('Content-Type',chave.endsWith('.jpg')?'image/jpeg':chave.endsWith('.png')?'image/png':'image/webp');res.set('Cache-Control',isPublic?'public, max-age=300':'private, no-store');(await storage.lerFotoAnuncio(chave)).on('error',()=>{if(!res.headersSent)res.status(503).end()}).pipe(res)}catch{throw erro(503,'Armazenamento de imagens indisponível.')}
   }));
   router.patch('/anuncios/:id/fotos/:fotoId/principal',autenticar,exigir('PROPRIETARIO'),executar(async(req,res)=>{
@@ -420,7 +424,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
       if (ehDemonstrativo(eq[0].descricao)) throw erro(409, 'Equipamentos demonstrativos não aceitam novos anúncios.');
       if ((b.estado || 'ativo') === 'ativo') {
         const max = await limiteAtivos(c, req.usuario.id);
-        const [counts] = await c.execute("SELECT COUNT(*) total FROM anuncios WHERE proprietario_id=? AND estado='ativo'", [req.usuario.id]);
+        const [counts] = await c.execute("SELECT COUNT(*) total FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? AND a.estado='ativo' AND (e.imagem_chave IS NULL OR e.imagem_chave NOT LIKE 'catalogo/maquinas/%')", [req.usuario.id]);
         if (Number(counts[0].total) >= max) throw erro(409, `Limite do plano atingido: ${max} anúncios ativos.`);
       }
       if (b.estado !== undefined && !['ativo','rascunho'].includes(b.estado)) throw erro(400, 'Estado inválido.');
@@ -463,7 +467,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
         if (own[0].moderacao === 'suspenso') throw erro(409, 'Anúncio suspenso pela moderação. Ajuste o conteúdo e fale com o suporte para liberá-lo.');
         if (own[0].estado !== 'ativo') {
           const max = await limiteAtivos(c, req.usuario.id);
-          const [counts] = await c.execute("SELECT COUNT(*) total FROM anuncios WHERE proprietario_id=? AND estado='ativo'", [req.usuario.id]);
+          const [counts] = await c.execute("SELECT COUNT(*) total FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? AND a.estado='ativo' AND (e.imagem_chave IS NULL OR e.imagem_chave NOT LIKE 'catalogo/maquinas/%')", [req.usuario.id]);
           if (Number(counts[0].total) >= max) throw erro(409, `Limite do plano atingido: ${max} anúncios ativos.`);
         }
       }
@@ -601,7 +605,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
       observacao: r.observacao, motivo_recusa: r.motivo_recusa, pagamento_status: r.pagamento_status,
       como: comoProprietario ? 'proprietario' : 'locatario', contato_liberado: contatoLiberado, contraparte,
       equipamento: { nome: String(r.nome).replace(/^DEMO · /, ''), categoria: r.categoria, marca: r.marca, modelo: r.modelo, cidade: r.cidade, uf: r.uf, diaria: r.diaria, condicoes: r.condicoes,
-        foto_url: r.imagem_chave ? `/api/anuncios/${r.anuncio_id}/foto` : imagemCatalogo(r) } } });
+        foto_url: fotoEstatica(r.imagem_chave) || (r.imagem_chave ? `/api/anuncios/${r.anuncio_id}/foto` : imagemCatalogo(r)) } } });
   }));
   /** @openapi
    * /api/reservas/{id}:
@@ -704,7 +708,7 @@ function publico(row) {
     descricao: typeof descricao === 'string' ? descricao.replace(/^\[DEMO FICTÍCIO\]\s*/, '') : descricao, informacoes_adicionais,
     diaria, cidade, uf, condicoes, demonstrativo, fotos: row.fotos || [],
     proprietario: { ...(demonstrativo ? {} : { id: row.proprietario_id }), nome: row.proprietario_nome || 'Proprietário' },
-    foto_url: imagem_chave ? `/api/anuncios/${anuncioId}/foto` : demonstrativo ? imagemCatalogo(row) : null };
+    foto_url: fotoEstatica(imagem_chave) || (imagem_chave ? `/api/anuncios/${anuncioId}/foto` : demonstrativo ? imagemCatalogo(row) : null) };
 }
 
 function imagemCatalogo(row) {

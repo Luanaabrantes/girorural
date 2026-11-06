@@ -23,7 +23,7 @@ async function carregar() {
     $('#etapa2').className = 'ok'; $('#etapa3').className = 'atual';
     status.className = 'notice success';
     status.textContent = 'Seu modo anunciante já está ativo. ';
-    const a = document.createElement('a'); a.href = '/painel.html#meus-equipamentos'; a.textContent = 'Ir para Minha garagem';
+    const a = document.createElement('a'); a.href = '/anunciar.html'; a.textContent = 'Anunciar uma máquina agora';
     status.append(a); return;
   }
   if (papel === 'ADMIN') { status.textContent = 'Contas administrativas não publicam anúncios.'; return; }
@@ -47,7 +47,7 @@ $('#formAceite').onsubmit = async e => {
   try {
     const d = await api('/api/auth/anunciante', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ aceite_termos: $('#aceite').checked }) });
     feedback.className = 'success'; feedback.textContent = d.mensagem;
-    setTimeout(() => location.assign('/painel.html#meus-equipamentos'), 900);
+    setTimeout(() => location.assign('/anunciar.html'), 900);
   } catch (err) { feedback.className = 'error'; feedback.textContent = err.message; botao.disabled = false; }
 };
 carregar().catch(e => { status.className = 'notice error'; status.textContent = e.message; });

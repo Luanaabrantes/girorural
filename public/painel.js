@@ -1,5 +1,6 @@
 const $=selector=>document.querySelector(selector);
-const status=$('#status'),feedback=$('#feedback'),equipForm=$('#equipamento'),adForm=$('#anuncio');
+const status=$('#status'),feedback=$('#feedback');
+const CATEGORIAS=['Tratores','Colheitadeiras','Plantadeiras','Pulverizadores','Preparo do solo','Transporte','Distribuidores'];
 const api=async(url,options={})=>{const response=await fetch(url,{cache:'no-store',...options}),data=response.status===204?{}:await response.json();if(!response.ok)throw Error(data.mensagem||'Não foi possível concluir.');return data};
 const formData=form=>Object.fromEntries(new FormData(form));
 function avisar(texto,erro=false){feedback.textContent=texto;feedback.classList.toggle('error',erro);feedback.classList.toggle('success',!erro)}
@@ -13,35 +14,25 @@ async function carregar(){
   }catch(error){status.textContent=error.message;status.classList.add('error');if(/sessão|autenticad/i.test(error.message)){const link=document.createElement('a');link.href='/login.html';link.textContent=' Entrar';status.append(link)}}
 }
 
-function dicaCategoria(){
-  const value=equipForm.elements.categoria.value.toLocaleLowerCase('pt-BR'),dica=$('#dicaCategoria'),campo=$('#informacoesAdicionais');
-  const contexto=value.includes('trator')?'Informe detalhes confirmados sobre uso, itens inclusos e condições de operação.':value.includes('plant')||value.includes('semead')?'Informe detalhes confirmados sobre uso, compatibilidade e itens inclusos.':value.includes('pulver')?'Informe detalhes confirmados sobre itens inclusos e condições de operação.':value.includes('solo')||value.includes('grade')||value.includes('subsol')?'Informe detalhes confirmados sobre uso, compatibilidade e condições do implemento.':value.includes('colheit')?'Informe detalhes confirmados sobre uso e condições de operação.':'Informe apenas detalhes confirmados que ajudem a avaliar o equipamento.';
-  dica.textContent='Opcional. '+contexto+' Não inclua especificações que não confirmou.';campo.placeholder=contexto;
-}
 
 async function carregarAnuncios(){
-  const [equipamentos,resultado]=await Promise.all([api('/api/equipamentos/meus'),api('/api/anuncios/meus')]);
-  const equipamentoBox=$('#equipamentosMeus');equipamentoBox.replaceChildren();
-  for(const item of equipamentos.equipamentos){const row=document.createElement('div');row.className='row';row.textContent=`${item.nome} · ${item.categoria}${item.marca?' · '+item.marca:''}${item.modelo?' '+item.modelo:''} · ${item.estado}`;equipamentoBox.append(row)}
-  if(!equipamentos.equipamentos.length)equipamentoBox.textContent='Seus equipamentos cadastrados aparecerão aqui.';
-  const options=equipamentos.equipamentos.filter(e=>e.estado==='ativo'&&!e.descricao?.startsWith('[DEMO FICTÍCIO]'));
-  const select=adForm.elements.equipamento_id;select.replaceChildren();
-  for(const item of options){const option=document.createElement('option');option.value=item.id;option.textContent=`${item.nome} · ${item.categoria}`;select.append(option)}
+  const resultado=await api('/api/anuncios/meus');
   const box=$('#meus');box.replaceChildren();
   for(const anuncio of resultado.anuncios)box.append(renderAnuncio(anuncio));
-  if(!resultado.anuncios.length)box.textContent='Cadastre seu equipamento e publique o primeiro anúncio.';
+  if(!resultado.anuncios.length){const p=document.createElement('p');p.textContent='Você ainda não tem anúncios. ';const a=document.createElement('a');a.href='/anunciar.html';a.textContent='Anunciar minha primeira máquina';p.append(a);box.append(p)}
 }
 
 function renderAnuncio(anuncio){
   const article=document.createElement('article');article.className='panel listing-manage';
   const title=document.createElement('h3');title.textContent=anuncio.nome;
-  const summary=document.createElement('p');summary.textContent=`${anuncio.marca||''} ${anuncio.modelo||''} · ${anuncio.cidade}/${anuncio.uf} · R$ ${Number(anuncio.diaria).toFixed(2)} por dia `;{const rot={ativo:'Publicado',rascunho:'Rascunho',inativo:'Pausado',arquivado:'Arquivado'};const b=document.createElement('span');b.className=`badge ${anuncio.estado}`;b.textContent=rot[anuncio.estado]||anuncio.estado;summary.append(b);if(anuncio.moderacao==='suspenso'){const m=document.createElement('span');m.className='badge suspenso';m.textContent='Suspenso pela moderação';m.style.marginLeft='6px';summary.append(m);if(anuncio.moderacao_motivo){const w=document.createElement('small');w.style.display='block';w.textContent=`Motivo: ${anuncio.moderacao_motivo}`;summary.append(w)}}};
+  const summary=document.createElement('p');summary.textContent=`${anuncio.marca||''} ${anuncio.modelo||''} · ${anuncio.cidade}/${anuncio.uf} · ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(anuncio.diaria))} por dia `;{const rot={ativo:'Publicado',rascunho:'Rascunho',inativo:'Pausado',arquivado:'Arquivado'};const b=document.createElement('span');b.className=`badge ${anuncio.estado}`;b.textContent=rot[anuncio.estado]||anuncio.estado;summary.append(b);if(anuncio.moderacao==='suspenso'){const m=document.createElement('span');m.className='badge suspenso';m.textContent='Suspenso pela moderação';m.style.marginLeft='6px';summary.append(m);if(anuncio.moderacao_motivo){const w=document.createElement('small');w.style.display='block';w.textContent=`Motivo: ${anuncio.moderacao_motivo}`;summary.append(w)}}};
   if(anuncio.demonstrativo){const note=document.createElement('p');note.className='notice';note.textContent='Este anúncio não está disponível para edição.';article.append(title,summary,note);return article}
   const actions=document.createElement('div');actions.className='listing-actions';
   const detail=document.createElement('details'),summaryEdit=document.createElement('summary');summaryEdit.textContent='Editar anúncio';detail.append(summaryEdit,formEditar(anuncio));
   actions.append(detail,criarGaleria(anuncio));
   if(anuncio.estado==='ativo'){const disable=document.createElement('button');disable.type='button';disable.className='button small outline';disable.textContent='Desativar anúncio';disable.onclick=async()=>{disable.disabled=true;try{await api(`/api/anuncios/${anuncio.id}`,{method:'DELETE'});avisar('Anúncio desativado.');await Promise.all([carregarAnuncios(),carregarPlano()])}catch(error){avisar(error.message,true);disable.disabled=false}};actions.append(disable)}
-  article.append(title,summary,actions);return article;
+  const topo=document.createElement('div');topo.className='listing-top';const thumb=document.createElement('div');thumb.className='listing-thumb';if(anuncio.foto_url){const img=document.createElement('img');img.src=anuncio.foto_url;img.alt='';img.loading='lazy';thumb.append(img)}else thumb.textContent='Sem foto';const txt=document.createElement('div');txt.append(title,summary);if(anuncio.estado==='ativo'){const ver=document.createElement('a');ver.href=`/anuncio.html?id=${anuncio.id}`;ver.textContent='Ver como os clientes veem →';ver.style.fontWeight='600';txt.append(ver)}topo.append(thumb,txt);
+  article.append(topo,actions);return article;
 }
 
 function criarGaleria(anuncio){
@@ -58,7 +49,7 @@ function criarGaleria(anuncio){
 function formEditar(anuncio){
   const form=document.createElement('form');form.className='form-grid listing-edit';
   const text=(label,name,value,max,required=false)=>{const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.name=name;input.maxLength=max;input.value=value??'';input.required=required;wrap.append(input);form.append(wrap);return input};
-  text('Nome do equipamento','nome',anuncio.nome,150,true);text('Categoria','categoria',anuncio.categoria,80,true);text('Marca','marca',anuncio.marca,100);text('Modelo','modelo',anuncio.modelo,120);
+  text('Nome do equipamento','nome',anuncio.nome,150,true);{const w=document.createElement('label');w.textContent='Categoria';const sel=document.createElement('select');sel.name='categoria';sel.required=true;const lista=CATEGORIAS.includes(anuncio.categoria)?CATEGORIAS:[anuncio.categoria,...CATEGORIAS];for(const c of lista){const o=document.createElement('option');o.value=c;o.textContent=c;sel.append(o)}sel.value=anuncio.categoria;w.append(sel);form.append(w)}text('Marca','marca',anuncio.marca,100);text('Modelo','modelo',anuncio.modelo,120);
   const year=text('Ano (opcional)','ano',anuncio.ano,4);year.type='number';year.min='1800';year.max=String(new Date().getFullYear()+1);
   const description=document.createElement('label');description.textContent='Descrição';const descriptionInput=document.createElement('textarea');descriptionInput.name='descricao';descriptionInput.maxLength=5000;descriptionInput.value=anuncio.descricao||'';description.append(descriptionInput);form.append(description);
   const info=document.createElement('label');info.textContent='Informações úteis para a categoria (opcional)';const infoInput=document.createElement('textarea');infoInput.name='informacoes_adicionais';infoInput.maxLength=3000;infoInput.value=anuncio.informacoes_adicionais||'';info.append(infoInput);form.append(info);
@@ -77,11 +68,8 @@ async function carregarReservas(){
   if(!reservas.length)box.textContent='Nenhuma solicitação recebida ainda. Quando um produtor pedir seu equipamento, ela aparece aqui.';const pend=reservas.filter(r=>r.estado==='solicitada').length;const cnt=document.querySelector('#pendentes');if(cnt){cnt.textContent=pend?String(pend):'';cnt.hidden=!pend};
 }
 
-async function carregarPlano(){try{const plano=await api('/api/premium/status'),ads=await api('/api/anuncios/meus'),count=ads.anuncios.filter(a=>a.estado==='ativo').length,limit=plano.premium?20:2;$('#plano').textContent=`Plano ${plano.premium?'Pro':'Gratuito'} · ${count} de ${limit} anúncios ativos${plano.premium?' · R$ 39,90/mês':''}`;$('#assinar').hidden=plano.premium||!plano.pode_assinar}catch(error){$('#plano').textContent=error.message}}
+async function carregarPlano(){try{const plano=await api('/api/premium/status'),ads=await api('/api/anuncios/meus'),count=ads.anuncios.filter(a=>a.estado==='ativo'&&!String(a.foto_url||'').startsWith('/imagens/catalogo/maquinas/')).length,limit=plano.premium?20:2;$('#plano').textContent=`Plano ${plano.premium?'Pro':'Gratuito'} · ${count} de ${limit} anúncios ativos${plano.premium?' · R$ 39,90/mês':''}`;$('#assinar').hidden=plano.premium||!plano.pode_assinar}catch(error){$('#plano').textContent=error.message}}
 
-equipForm.onsubmit=async event=>{event.preventDefault();const button=equipForm.querySelector('button[type=submit],button:not([type])');button.disabled=true;try{const data=formData(equipForm);data.ano=data.ano?Number(data.ano):null;await api('/api/equipamentos',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});equipForm.reset();dicaCategoria();avisar('Equipamento cadastrado. Agora selecione-o para publicar um anúncio.');await carregarAnuncios()}catch(error){avisar(error.message,true)}finally{button.disabled=false}};
-adForm.onsubmit=async event=>{event.preventDefault();const button=adForm.querySelector('button');button.disabled=true;try{const data=formData(adForm);data.equipamento_id=Number(data.equipamento_id);data.diaria=Number(data.diaria);const created=await api('/api/anuncios',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)});adForm.reset();avisar(`Anúncio ${created.id} publicado.`);await Promise.all([carregarAnuncios(),carregarPlano()])}catch(error){avisar(error.message,true)}finally{button.disabled=false}};
 async function decidir(id,estado){try{await api(`/api/reservas/${id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({estado})});avisar('Solicitação atualizada.');await carregarReservas()}catch(error){avisar(error.message,true)}}
 $('#assinar').onclick=async()=>{try{const {url}=await api('/api/premium/checkout',{method:'POST'});location.assign(url)}catch(error){$('#checkoutStatus').textContent=error.message;$('#checkoutStatus').className='error'}};
-equipForm.elements.categoria.addEventListener('input',dicaCategoria);
 carregar();

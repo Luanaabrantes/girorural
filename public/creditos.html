@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Créditos das fotos · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g">
+  <header class="top"><a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a><nav></nav></header>
+  <main class="wrap" style="max-width:960px;padding-top:32px;padding-bottom:80px;display:flex;flex-direction:column;gap:20px">
+    <h1 style="font-size:32px;font-weight:700;letter-spacing:-.02em">Créditos das fotos</h1>
+    <p class="mu" style="font-size:16px;line-height:1.5">As fotos ilustrativas dos anúncios vêm do Wikimedia Commons e são usadas conforme as licenças livres indicadas (CC0, domínio público, CC BY e CC BY-SA). Elas mostram o modelo da máquina e não necessariamente a unidade anunciada.</p>
+    <div id="lista" class="previas" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px"></div>
+  </main>
+  <script>
+  fetch('/imagens/catalogo/maquinas/manifest.json').then(r => r.json()).then(itens => {
+    const lista = document.getElementById('lista');
+    for (const c of itens) {
+      const card = document.createElement('figure'); card.className = 'gcard'; card.style.cssText = 'margin:0;overflow:hidden;display:flex;flex-direction:column';
+      const img = new Image(); img.src = '/imagens/catalogo/maquinas/' + c.arquivo; img.alt = [c.marca, c.modelo].filter(Boolean).join(' '); img.loading = 'lazy'; img.style.cssText = 'width:100%;aspect-ratio:4/3;object-fit:cover';
+      const cap = document.createElement('figcaption'); cap.style.cssText = 'padding:12px 14px;font-size:13px;line-height:1.5;display:flex;flex-direction:column;gap:2px';
+      const t = document.createElement('b'); t.textContent = img.alt || c.categoria;
+      const a = document.createElement('span'); a.className = 'mu'; a.textContent = 'Autor: ' + (c.autor || 'desconhecido');
+      const l = document.createElement('span'); const la = document.createElement('a'); la.href = c.licenca_url || c.fonte; la.textContent = c.licenca; la.rel = 'noopener'; const fa = document.createElement('a'); fa.href = c.fonte; fa.textContent = 'ver no Commons'; fa.rel = 'noopener'; l.append(la, ' · ', fa);
+      cap.append(t, a, l); card.append(img, cap); lista.append(card);
+    }
+  });
+  </script>
+  <script src="nav.js"></script>
+</body>
+</html>

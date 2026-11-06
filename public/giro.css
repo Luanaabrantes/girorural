@@ -123,3 +123,20 @@
 @media (max-width:560px){.pag-topo .protegido{display:none!important}.pag-topo .brand{margin-right:4px}}
 .sec-card .msg:empty{display:none}
 .g [hidden]{display:none!important}
+/* Anunciar máquina */
+.passos{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;font-size:14px;font-weight:600}
+.passos li{padding:10px 12px;border-radius:8px;background:#F3F2EF;color:#5F5F5F;text-align:center}
+.passos li.atual{background:#1F6B3A;color:#fff}.passos li.feito{background:#DDF3E5;color:#1D6B3D}
+.etapa{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:20px;min-width:0}
+.etapa legend{padding:0;margin-bottom:4px}
+.in.area{height:auto;padding:12px 14px;resize:vertical;line-height:1.5}
+.soltar{border:2px dashed #CFCAC1;border-radius:12px;padding:32px 16px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;background:#FAF9F6;text-align:center}
+.soltar:hover,.soltar.sobre{border-color:#1F6B3A;background:#E8F3EC}
+.soltar:focus-visible{outline:3px solid #F2B705;outline-offset:2px}
+.previas{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.previa{position:relative;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#EDEBE7}
+.previa img{width:100%;height:100%;object-fit:cover}
+.previa span{position:absolute;left:8px;top:8px;background:#fff;color:#1F6B3A;font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px}
+.listing-top{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.listing-thumb{width:160px;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#C9D9C6;flex:none;display:flex;align-items:center;justify-content:center;color:#24432F;font-size:13px}
+.listing-thumb img{width:100%;height:100%;object-fit:cover}

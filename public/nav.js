@@ -19,13 +19,17 @@
     window.giroUsuario = usuario || null;
     document.dispatchEvent(new CustomEvent('giro:sessao', { detail: usuario || null }));
     const itens = [link('/anuncios.html', 'Explorar')];
+    if (!usuario && document.body.dataset.login === 'obrigatorio') {
+      // Página exige conta: leva ao login e volta para cá depois.
+      location.replace(`/login.html?voltar=${encodeURIComponent(location.pathname + location.search)}`); return;
+    }
     if (!usuario) {
       itens.push(link('/anunciante.html', 'Anunciar equipamento'), link('/login.html', 'Entrar', 'button small outline'), link('/cadastro.html', 'Criar conta', 'button small'));
       nav.replaceChildren(...itens); return;
     }
     const p = papel(usuario.role);
     itens.push(link('/minhas-reservas.html', 'Minhas reservas'));
-    if (p === 'PROPRIETARIO') itens.push(link('/painel.html', 'Minha garagem'));
+    if (p === 'PROPRIETARIO') itens.push(link('/painel.html', 'Minha garagem'), link('/anunciar.html', 'Anunciar máquina'));
     if (p === 'LOCATARIO') itens.push(link('/anunciante.html', 'Anunciar equipamento'));
     if (p === 'ADMIN') itens.push(link('/admin.html', 'Administração'));
     itens.push(link('/perfil.html', 'Meu perfil'));
