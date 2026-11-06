@@ -146,9 +146,6 @@ services:
 networks:
   catalogo-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 10.88.0.0/24
 
 volumes:
   minio-data:
