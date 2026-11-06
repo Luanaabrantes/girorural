@@ -37,7 +37,11 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
   const exigir = (...permitidos) => (req, res, next) => {
     const atual = papel(req.usuario?.role);
     if (!req.usuario) return res.status(401).json({ mensagem: 'Usuário não autenticado.' });
-    if (!papelsValidos.has(atual) || !permitidos.includes(atual)) return res.status(403).json({ mensagem: 'Papel sem permissão para esta operação.' });
+    if (!papelsValidos.has(atual) || !permitidos.includes(atual)) {
+      Promise.resolve().then(() => evento({ usuario_id: req.usuario.id, acao: 'ACAO_NEGADA', ip: req.ip, detalhes: { operacao: `${req.method} ${req.baseUrl}${req.path}`, motivo: 'papel_sem_permissao', papel: atual } }))
+        .catch(() => console.error('Evento de negócio não registrado no log-service.'));
+      return res.status(403).json({ mensagem: 'Papel sem permissão para esta operação.' });
+    }
     next();
   };
   const auditar = async (req, acao, recurso, recursoId) => {
