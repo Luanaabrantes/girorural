@@ -7,7 +7,7 @@
 
 > Projeto da disciplina ISW055 (Introdução à Computação em Nuvem), Fatec Pompeia, proposto pelo professor [@siriani](https://github.com/siriani).
 >
-> **Atividade 10, "Seu negócio no ar":** o GiroRural rodando na mesma stack do Portainer das atividades anteriores (`girorural-luana-abrantes`), no mesmo subdomínio e com limite de 1 GB por container. A arquitetura de microsserviços das atividades 1 a 8 foi reaproveitada inteira; o domínio (máquinas, anúncios e reservas) é novo.
+> **Atividade 10, "Seu negócio no ar":** o negócio do [plano de negócio](docs/plano-de-negocio.md) (atividade 9) rodando na mesma stack do Portainer das atividades anteriores (`girorural-luana-abrantes`), no mesmo subdomínio e com limite de 1 GB por container. A arquitetura de microsserviços das atividades 1 a 8 foi reaproveitada inteira; o domínio (máquinas, anúncios e reservas) é novo.
 
 ### Contas para testar
 
@@ -281,6 +281,7 @@ npm run docs:validate     # valida o contrato OpenAPI
 
 ## 11. Documentação
 
+- [Plano de negócio](docs/plano-de-negocio.md): dor, persona, concorrentes, proposta de valor, receita com Stripe, métricas, Lean Canvas, mapa de reaproveitamento e LGPD (atividade 9).
 - [Documentação do sistema](DOCUMENTACAO.md): especificação, regras de negócio e modelo de dados.
 - [Arquitetura](docs/arquitetura-girorural.md) e [modelo de dados e isolamento](docs/modelo-dados-isolamento.md).
 - [Relatório P1](docs/P1_ISW055_Luana_Abrantes.pdf): atividades 1 a 8.
