@@ -1,6 +1,25 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Consulte o estado do pagamento da sua locação no GiroRural."><title>Pagamento da locação · GiroRural</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="dashboard.css"><link rel="stylesheet" href="tema.css"></head>
-<body><header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav aria-label="Navegação principal"><a href="/anuncios.html">Equipamentos</a><a href="/minhas-reservas.html">Minhas reservas</a><a class="button small" href="/perfil.html">Meu perfil</a></nav></header>
-<main class="page payment-return"><p class="eyebrow">LOCAÇÃO</p><h1>Estado do pagamento</h1><p id="pagamentoStatus" class="notice" role="status" aria-live="polite">Consultando a confirmação no GiroRural...</p><dl id="paymentFacts" class="detail-facts" hidden></dl><p id="paymentNote" class="detail-copy"></p><a class="button" href="/minhas-reservas.html">Voltar a Minhas reservas</a></main><script src="pagamento.js"></script><script src="nav.js"></script></body>
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Pague sua locação aprovada no GiroRural com segurança.">
+  <title>Pagamento · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g" style="margin:0;min-height:100vh;display:flex;flex-direction:column">
+  <div class="faixa-teste" role="note"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none"><path d="M10 2v7.5L4.5 19a2 2 0 0 0 1.7 3h11.6a2 2 0 0 0 1.7-3L14 9.5V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></svg><span>Ambiente de teste, nenhuma cobrança real. No Stripe, use o cartão 4242 4242 4242 4242, qualquer validade futura e qualquer CVV.</span></div>
+  <header class="pag-topo">
+    <div class="wrap">
+      <a id="voltar" href="/minhas-reservas.html" class="btn bt"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Minhas reservas</a>
+      <a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a>
+      <span class="mu protegido" style="display:flex;gap:6px;align-items:center;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Pagamento protegido</span>
+    </div>
+  </header>
+  <main id="raiz" class="wrap" style="flex:1;padding-top:40px;padding-bottom:64px;width:100%">
+    <p id="status" class="msg" role="status" aria-live="polite">Carregando o pagamento…</p>
+  </main>
+  <script src="vitrine.js"></script>
+  <script src="pagamento.js"></script>
+</body>
 </html>

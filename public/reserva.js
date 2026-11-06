@@ -76,7 +76,7 @@ async function carregar() {
   if (!dono) {
     if (r.estado === 'confirmada' && r.valor_total != null && !pago && !['checkout_aberto', 'pendente', 'criando'].includes(r.pagamento_status)) {
       const b = el('button', 'button', r.pagamento_status === 'falho' ? 'Tentar pagar novamente' : `Pagar ${moeda(r.valor_total, r.moeda)}`); b.type = 'button';
-      b.onclick = () => acao(async () => { avisar('Abrindo pagamento de teste...'); const d = await api(`/api/locacao/reservas/${r.id}/checkout`, { method: 'POST' }); location.assign(d.url); }, b);
+      b.onclick = () => location.assign(`/pagamento.html?reserva_id=${r.id}`);
       acoes.push(b, el('small', '', 'Ambiente de teste: use o cartão 4242 4242 4242 4242, qualquer data futura e CVC.'));
     }
     if (['checkout_aberto', 'pendente', 'criando'].includes(r.pagamento_status)) acoes.push(el('p', 'notice', 'Pagamento em processamento. Atualize a página em alguns instantes.'));

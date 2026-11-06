@@ -1,17 +1,68 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Gerencie seus dados e sua apresentação no GiroRural."><title>Meu perfil · GiroRural</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="perfil.css"><link rel="stylesheet" href="dashboard.css"><link rel="stylesheet" href="tema.css"></head>
-<body><header class="top"><a class="brand" href="/">Giro<span>Rural</span></a><nav aria-label="Navegação principal"><a href="/anuncios.html">Explorar</a><a href="/painel.html">Meu negócio</a><a href="/minhas-reservas.html">Minhas reservas</a><a class="button small" href="/perfil.html" aria-current="page">Meu perfil</a></nav></header>
-<main class="page profile-page"><p class="eyebrow">SUA CONTA</p><h1>Meu perfil</h1><p id="profileStatus" class="notice" role="status" aria-live="polite">Carregando seu perfil...</p>
-<section id="profileContent" class="panel profile-panel" hidden>
-  <div class="profile-photo-area"><div class="profile-avatar"><span id="profileInitials"></span><img id="profilePhoto" alt="Foto de perfil" hidden></div><div><label class="button small" for="photoInput">Escolher foto</label><input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button id="removePhoto" class="button small outline" type="button" hidden>Remover foto</button><p class="muted">JPG, PNG ou WebP · até 5 MB</p></div></div>
-  <form id="profileForm" class="form-grid profile-form">
-    <label>Nome completo<input name="nome" maxlength="150" required></label>
-    <label>Nome de exibição<input name="nome_exibicao" maxlength="100"></label>
-    <label>E-mail<input name="email" type="email" readonly aria-describedby="emailHelp"></label><small id="emailHelp" class="field-help">Para mudar o e-mail, será necessário verificar a nova conta.</small>
-    <label>Telefone<input name="telefone" type="tel" maxlength="30" autocomplete="tel"></label>
-    <label>Cidade<input name="cidade" maxlength="120" autocomplete="address-level2"></label>
-    <label>Estado (UF)<input name="uf" maxlength="2" pattern="[A-Za-z]{2}" autocomplete="address-level1"></label>
-    <label class="profile-bio">Sobre você<textarea name="bio" maxlength="300" rows="4"></textarea><small>Até 300 caracteres. Esta descrição e sua localização podem aparecer no seu perfil público de proprietário.</small></label>
-    <div class="profile-actions"><button id="saveProfile" class="button" type="submit">Salvar alterações</button><a class="button outline" href="/painel.html">Meus equipamentos e reservas</a></div>
-  </form><p id="profileFeedback" role="status" aria-live="polite"></p>
-</section></main><script src="perfil.js"></script><script src="nav.js"></script></body></html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Gerencie seus dados e sua apresentação no GiroRural.">
+  <title>Meu perfil · GiroRural</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="rural.css"><link rel="stylesheet" href="tema.css"><link rel="stylesheet" href="giro.css">
+</head>
+<body class="g">
+  <header class="top"><a class="brand" href="/" aria-label="GiroRural, início">Giro<span>Rural</span></a><nav></nav></header>
+  <div class="perfil-lay">
+    <nav class="perfil-nav" aria-label="Seções do perfil" id="perfilNav" hidden>
+      <div class="perfil-quem"><span class="avatar" id="avatarMini" aria-hidden="true"></span><span style="display:flex;flex-direction:column;gap:2px;min-width:0"><b id="nomeMini"></b><span class="mu" style="font-size:13px" id="papelMini"></span></span></div>
+      <a class="nv ativo" href="#dados">Dados pessoais</a>
+      <a class="nv" href="#localizacao">Localização</a>
+      <a class="nv" href="#apresentacao">Apresentação pública</a>
+      <a class="nv" href="#seguranca">Segurança</a>
+      <a class="nv" id="linkAnunciante" href="/anunciante.html" style="margin-top:12px;color:#1F6B3A;font-weight:600" hidden>Habilitar modo anunciante →</a>
+    </nav>
+    <main style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:24px">
+      <h1 style="font-size:32px;font-weight:700;letter-spacing:-.02em">Meu perfil</h1>
+      <p id="status" class="msg" role="status" aria-live="polite">Carregando seu perfil…</p>
+      <form id="formPerfil" style="display:flex;flex-direction:column;gap:24px" hidden novalidate>
+        <section class="gcard sec-card" id="dados">
+          <h2 class="h2">Dados pessoais</h2>
+          <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+            <span class="avatar grande"><span id="iniciais"></span><img id="foto" alt="Sua foto de perfil" hidden></span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap"><label class="btn bo" for="fotoInput" tabindex="0" id="fotoBotao">Enviar foto</label><input id="fotoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden><button class="btn bt" type="button" id="removerFoto" style="color:#9B2A22" hidden>Remover</button></div>
+            <span class="mu" style="font-size:13px">JPG, PNG ou WebP, até 5 MB</span>
+          </div>
+          <div class="grade">
+            <label class="lb">Nome completo<input class="in" name="nome" maxlength="150" autocomplete="name" required></label>
+            <label class="lb">Nome de exibição<input class="in" name="nome_exibicao" maxlength="100" placeholder="Como aparece para os outros"></label>
+            <label class="lb">E-mail<input class="in" name="email" type="email" readonly aria-describedby="emailAjuda" style="background:#F3F2EF"><span id="emailAjuda" class="mu" style="font-size:13px;font-weight:400">O e-mail da conta não pode ser alterado aqui.</span></label>
+            <label class="lb">Telefone (WhatsApp)<input class="in" name="telefone" type="tel" maxlength="30" autocomplete="tel" placeholder="(00) 00000-0000"></label>
+          </div>
+          <div class="sec-acoes"><button class="btn bp" type="submit">Salvar alterações</button></div>
+        </section>
+        <section class="gcard sec-card" id="localizacao">
+          <h2 class="h2">Localização</h2>
+          <p class="mu" style="font-size:15px">Usada para mostrar máquinas perto de você e, se você anunciar, para indicar onde a máquina está.</p>
+          <div style="display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:16px">
+            <label class="lb">Cidade<input class="in" name="cidade" maxlength="120" autocomplete="address-level2"></label>
+            <label class="lb">UF<select class="in" name="uf" id="uf" autocomplete="address-level1"><option value="">—</option></select></label>
+          </div>
+          <div class="sec-acoes"><button class="btn bp" type="submit">Salvar alterações</button></div>
+        </section>
+        <section class="gcard sec-card" id="apresentacao">
+          <h2 class="h2">Apresentação pública</h2>
+          <label class="lb">Sobre você<textarea class="in" name="bio" maxlength="300" rows="4" style="height:auto;padding:12px 14px;resize:vertical" aria-describedby="bioAjuda"></textarea>
+            <span style="display:flex;justify-content:space-between;gap:12px;font-size:13px;font-weight:400"><span id="bioAjuda" class="mu">Aparece no seu perfil público de proprietário, junto com a cidade.</span><span class="mu" id="bioConta">0/300</span></span></label>
+          <div class="sec-acoes"><button class="btn bp" type="submit">Salvar alterações</button></div>
+        </section>
+      </form>
+      <section class="gcard sec-card" id="seguranca" hidden>
+        <h2 class="h2">Segurança</h2>
+        <div class="nr"><span><b>Senha</b><br><span class="mu" style="font-size:14px">Enviamos um link seguro para o seu e-mail para você criar uma nova senha.</span></span><button class="btn bo" type="button" id="trocarSenha">Trocar senha</button></div>
+        <div class="nr" style="border-bottom:0"><span><b>Sessão</b><br><span class="mu" style="font-size:14px">Você está conectado neste navegador.</span></span><button class="btn bt" type="button" id="sair" style="color:#9B2A22">Sair da conta</button></div>
+        <p id="segurancaMsg" class="msg" role="status" aria-live="polite"></p>
+      </section>
+    </main>
+  </div>
+  <div id="aviso" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="perfil.js"></script>
+  <script src="nav.js"></script>
+</body>
+</html>
