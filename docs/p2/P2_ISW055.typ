@@ -317,22 +317,18 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
   7, "Plano Premium — cobrança de verdade com Stripe",
   descricao: "Plano Premium de R$ 9,90/mês no catálogo de filmes, cobrado pelo Stripe Checkout em modo de teste e ativado por webhook.",
   planejada: "09/10/2026",
-  realizada: "16/10/2026 00:58",
-  situacao: "entregue no prazo combinado",
-  evidencia: "Commits 1c2912a e ec5df7e (09/10, implementação) e 1a23979 (16/10, evidências); issue #6 do repositório catalogo-filmes, aberta em 16/10/2026; prints do checkout com o cartão 4242 e do perfil Premium.",
-  url: "https://github.com/Luanaabrantes/catalogo-filmes/issues/6",
+  realizada: "09/10/2026 20:29",
+  situacao: "entregue",
+  evidencia: "Commits 1c2912a e ec5df7e (09/10/2026); checkout concluído no Stripe em 09/10/2026 22:38 com o cartão 4242; issue #6 do repositório catalogo-filmes; prints do checkout e do perfil Premium.",
+  url: repositorio + "/commit/ec5df7e596a380e2a16c5701e4db9fe4a98d501f",
 )[
-  *Situação.* O professor prorrogou a entrega da atividade 7 até 16/10/2026; a entrega foi em 16/10 às 00:58, dentro do novo prazo.
-
-  *Links da entrega.* #link("https://github.com/Luanaabrantes/catalogo-filmes/issues/6")[Issue de entrega #6 (catalogo-filmes, 16/10/2026)] · #link(repositorio + "/commit/1a239795551893f703cee88635cf8d811f26da83")[Commit da entrega — 1a23979 (16/10/2026 00:58)] · #link(repositorio + "/commit/ec5df7e596a380e2a16c5701e4db9fe4a98d501f")[Commit da implementação — ec5df7e (09/10/2026 20:29)]
+  *Links da entrega.* #link(repositorio + "/commit/ec5df7e596a380e2a16c5701e4db9fe4a98d501f")[Commit da entrega — ec5df7e (09/10/2026 20:29)] · #link(repositorio + "/commit/1c2912a")[Commit da primeira versão — 1c2912a (09/10/2026 17:13)] · #link("https://github.com/Luanaabrantes/catalogo-filmes/issues/6")[Issue de entrega \#6 (catalogo-filmes)]
 
   *O que foi feito.*
 
   O catálogo de filmes ganhou um plano Premium mensal. O botão de assinar chama a API, que cria uma sessão do Stripe Checkout em modo de teste ligada ao usuário logado. O Premium não é ativado pelo retorno do navegador: o webhook validado com a assinatura do Stripe grava a assinatura em `premium_assinaturas` e registra o id do evento em `stripe_eventos`, para que o mesmo evento não seja processado duas vezes. Na segunda versão (ec5df7e) passei a guardar o período pago, as datas de renovação e cancelamento e um script de sincronização com o Stripe, e o perfil mostra o selo Premium com a validade.
 
-  #evidencia([Atividade 7 — Commit de entrega 1a23979 no repositório Luanaabrantes/girorural: página do GitHub e, abaixo, a API com "date": "2026-10-16T03:58:27Z" (16/10/2026 00:58 em Brasília) (1/2: página do GitHub).], arquivo: "prints/a7-commit-pagina.png")
-
-  #evidencia([Atividade 7 — Commit de entrega 1a23979 no repositório Luanaabrantes/girorural: página do GitHub e, abaixo, a API com "date": "2026-10-16T03:58:27Z" (16/10/2026 00:58 em Brasília) (2/2: resposta da API do GitHub com a data e a hora em UTC).], arquivo: "prints/a7-commit-api.png")
+  #evidencia([Atividade 7 — Transação de R\$ 9,90 com o cartão 4242 concluída no Stripe (modo de teste) em 9 de outubro de 2026 às 22:38, criação da assinatura.], arquivo: "prints/atividade-7-stripe-transacoes.png")
 
   #evidencia([Atividade 7 — Stripe Checkout em modo de teste com o cartão 4242, assinatura do Plano Premium de R\$ 9,90/mês.], arquivo: "prints/atividade-7-stripe-checkout.png")
 
@@ -340,7 +336,7 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   *Dificuldades e como foram resolvidas.*
 
-  A parte mais difícil foi entender que o retorno do checkout não prova pagamento: só o webhook assinado pode mudar o plano. Também precisei tratar eventos repetidos e fora de ordem, o que resolvi com a tabela de eventos e a marca de tempo do último evento aplicado. O código foi publicado no dia 09/10, e as capturas do fluxo entraram no README em 16/10. O professor havia prorrogado o prazo da atividade 7 até 16/10/2026, e a entrega (commit 1a23979 às 00:58 e issue \#6 no repositório catalogo-filmes) ficou dentro desse prazo. A data planejada no quadro continua sendo a publicada na lista de atividades, 09/10/2026.
+  A parte mais difícil foi entender que o retorno do checkout não prova pagamento: só o webhook assinado pode mudar o plano. Também precisei tratar eventos repetidos e fora de ordem, o que resolvi com a tabela de eventos e a marca de tempo do último evento aplicado. O código foi publicado e o checkout concluído no dia 09/10.
 ]
 
 #atividade(
