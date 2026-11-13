@@ -1,6 +1,6 @@
 # GiroRural · Plano de negócio
 
-> Atividade 9 da disciplina ISW055, proposta pelo professor [@siriani](https://github.com/siriani). O plano foi escrito antes do código; o que já está construído aparece no [README](../README.md). Os planos e limites abaixo descrevem a visão do produto. O MVP no ar aplica 2 anúncios ativos no plano Gratuito e 20 no Pro.
+> Atividade 9 da disciplina ISW055, proposta pelo professor [@siriani](https://github.com/siriani). O plano foi escrito antes do código; o que já está construído aparece no [README](../README.md). Os planos e limites abaixo descrevem a visão do produto. Na atividade "SaaS completo" os limites passaram a ser: Gratuito com 3 anúncios novos por mês e Pro sem limite.
 
 **Do trator parado no galpão à máquina trabalhando na lavoura do vizinho: o GiroRural reúne em um só lugar as máquinas agrícolas disponíveis para aluguel na região, com diária, fotos e condições claras. O locatário pede as datas, o dono aprova e o pagamento e o contato saem pela própria plataforma.**
 
@@ -70,14 +70,14 @@ O GiroRural ganha dinheiro com uma **assinatura mensal do anunciante**, cobrada 
 
 | Plano | Preço | Para quem | Limites |
 |---|---|---|---|
-| **Gratuito** | **R$ 0** | Produtor que quer testar com uma ou duas máquinas | Até **2 anúncios ativos** · até 12 fotos por anúncio · reservas e pagamento pela plataforma |
-| **Pro** | **R$ 39,90/mês** | Produtor ou pequena locadora com várias máquinas | Até **20 anúncios ativos** · destaque no catálogo · relatório de locações e faturamento por máquina |
+| **Gratuito** | **R$ 0** | Produtor que quer testar com uma ou duas máquinas | Até **3 anúncios novos por mês** · até 12 fotos por anúncio · reservas e pagamento pela plataforma |
+| **Pro** | **R$ 39,90/mês** | Produtor ou pequena locadora com várias máquinas | **Anúncios sem limite** · destaque no catálogo · relatório de locações e faturamento por máquina |
 
 **Pagamento da locação:** o locatário paga a diária pelo Stripe Checkout (`mode=payment`) **somente depois que o dono aprova** a reserva. O contato das partes só é liberado depois disso. No MVP o valor é cobrado em modo de teste e não há repasse automático.
 
 **Próxima fonte de receita (roadmap):** uma taxa de serviço de 5% sobre cada locação paga, com repasse automático ao proprietário pelo **Stripe Connect**.
 
-**Por que o dono pagaria o Pro:** R$ 39,90 por mês é menos do que meia diária de um trator. Se o GiroRural trouxer **uma** locação a mais por mês, o plano já se pagou. E quem tem mais de duas máquinas para anunciar esbarra no limite do Gratuito.
+**Por que o dono pagaria o Pro:** R$ 39,90 por mês é menos do que meia diária de um trator. Se o GiroRural trouxer **uma** locação a mais por mês, o plano já se pagou. E quem quer anunciar mais de três máquinas no mês esbarra no limite do Gratuito.
 
 ## 6. Métricas de sucesso
 
@@ -123,7 +123,7 @@ A arquitetura das atividades 1 a 8 foi reaproveitada inteira; só o domínio mud
 | Esqueci minha senha + e-mail transacional | ✅ Recuperação de senha por link de uso único; aviso de "pedido aprovado" por e-mail (roadmap) |
 | Auditoria (`log-service` + Redis Streams) | ✅ `ANUNCIO_CRIADO`, `RESERVA_SOLICITADA`, `RESERVA_APROVADA`, `LOCACAO_PAGA`, `ACAO_NEGADA` e outros |
 | Upload em object storage (MinIO) | ✅ **Fotos do anúncio** (até 12) e foto de perfil, regravadas no servidor e sem EXIF |
-| Plano pago (Stripe: checkout, webhook assinado) | ✅ **Pro** para anunciantes (20 anúncios) e ✅ **pagamento da locação** no checkout de teste |
+| Plano pago (Stripe: checkout, webhook assinado) | ✅ **Pro** para anunciantes (anúncios sem limite, assinatura mensal com portal do cliente) e ✅ **pagamento da locação** no checkout de teste |
 | Perfil do usuário | ✅ Perfil com cidade, telefone e apresentação; perfil público do proprietário sem dados privados |
 | Painel de admin | ✅ Indicadores, moderação de anúncios, reservas, usuários e auditoria |
 | Swagger / OpenAPI | ✅ API documentada em `/apidocs/` |

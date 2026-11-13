@@ -21,9 +21,92 @@ A conta e os anúncios da Fazenda Boa Vista são criados automaticamente quando 
 
 **Roteiro de demonstração (5 minutos):** crie uma conta de locatário → abra um anúncio e peça a reserva com retirada para hoje → entre como Fazenda Boa Vista e aprove em **Minha garagem** → volte ao locatário, clique em **Pagar** e em **Simular pagamento aprovado** (o contato do dono é liberado) → como proprietário, clique em **Concluir locação**.
 
+## SaaS completo: planos, limites e assinatura com Stripe
+
+> **Atividade "SaaS completo" (entrega 13/11/2026)**, continuação do Plano Premium, proposta pelo professor [@siriani](https://github.com/siriani). O Plano Premium cobrava e marcava um campo; agora o anunciante tem plano gratuito, plano pago mensal, limite aplicado na API, troca de plano e cancelamento pelo portal do Stripe, e um painel com o MRR de teste. **Tudo em modo de teste do Stripe**: nenhuma cobrança é real, nenhuma chave está no repositório (só os nomes em [`.env.example`](.env.example)) e o cartão nunca passa pelo servidor.
+
+### Modelo de receita (planos e limites)
+
+| Plano | Preço no Stripe (teste) | Limite na API | Para quem |
+|---|---|---|---|
+| **Gratuito** | R$ 0,00/mês | **3 anúncios novos por mês** | Produtor testando com poucas máquinas; toda conta nasce aqui |
+| **Pro** | **R$ 39,90/mês** (preço recorrente mensal em BRL) | **sem limite** | Produtor ou pequena locadora com várias máquinas |
+
+Os valores ficam num lugar só, [`src/planos.js`](src/planos.js), usado pela API, pelas telas e pelo painel admin. Quem aluga não paga plano.
+
+### O ciclo de vida da assinatura
+
+```mermaid
+flowchart LR
+    U(["Proprietário<br/>Gratuito → Pro"]) -- "Assinar Pro" --> APP["App<br/>POST /api/premium/checkout<br/>mode=subscription + customer do usuário"]
+    APP -- redireciona --> CK["Stripe Checkout<br/>cobra todo mês"]
+    CK -- eventos --> WH["POST /api/stripe/webhook<br/>assinatura validada · processado uma vez"]
+    U -- "Gerenciar assinatura" --> PT["Portal do cliente<br/>troca de plano · cancelamento"]
+    PT -- "updated / deleted" --> WH
+    WH -- atualiza --> DB[("premium_assinaturas<br/>plano, status, ids do Stripe")]
+    DB -- "a cada requisição" --> LIM["Limite na API<br/>Gratuito: 3/mês · Pro: sem limite"]
+```
+
+O app só abre caminhos (checkout e portal). **Quem muda o plano no banco é sempre o webhook.** Voltar do checkout com `?plano=sucesso` não muda nada: a tela Minha garagem fica consultando o banco até o webhook confirmar.
+
+### Os webhooks e o que cada um muda
+
+Endpoint: `POST /api/stripe/webhook` ([`src/premium.js`](src/premium.js)). O corpo bruto é validado com `stripe.webhooks.constructEvent` e o segredo `STRIPE_WEBHOOK_SECRET`; sem assinatura válida ou com `livemode: true` a resposta é 400 e nada é gravado.
+
+| Evento | O que o app faz |
+|---|---|
+| `checkout.session.completed` | Confere que a sessão é do usuário (`client_reference_id` e customer guardado), guarda a subscription no usuário e, com a fatura paga relida do Stripe, muda o plano para **Pro** |
+| `customer.subscription.updated` | Atualiza status (`active`, `past_due`, `canceled`…), preço, cancelamento agendado e período pago; troca de plano no portal chega por aqui |
+| `customer.subscription.deleted` | A assinatura terminou: status `canceled`, a conta volta para o **Gratuito** |
+| `invoice.payment_failed` | Marca a assinatura como inadimplente e avisa o usuário na Minha garagem; o Pro **não** continua de graça: termina junto com o último período pago |
+| `invoice.paid` (extra) | Confirma a renovação mensal e estende o período pago |
+
+**Idempotência:** antes de processar, o id do evento entra em `stripe_eventos` (chave primária) dentro da mesma transação que atualiza o plano. Se o Stripe reenviar o evento, o `INSERT IGNORE` não insere nada e o processamento é pulado, sem efeito duplicado. Se o processamento falhar, a transação desfaz também o registro do evento e o Stripe pode reenviar. Eventos fora de ordem não sobrescrevem um estado mais novo (marca temporal `state_event_created`). Cada evento processado também vai para o log-service (`ASSINATURA_*`).
+
+### Portal do cliente
+
+O botão **Gerenciar assinatura** (Minha garagem → Plano) chama `POST /api/premium/portal`, que abre o **Billing Portal** do Stripe para o customer guardado no usuário da sessão. Lá o cliente troca de plano, atualiza o cartão e cancela sozinho. Para testar o cancelamento na hora, o portal está configurado com **cancelamento imediato**; com "no fim do período", o `customer.subscription.deleted` só chegaria no fim do mês.
+
+### Limite por plano na API
+
+`POST /api/anuncios` consulta o plano no banco **a cada requisição** ([`exigirLimiteAnuncios`](src/planos.js)). No Gratuito, o 4º anúncio do mês (rascunho também conta) é recusado com **402** e a mensagem:
+
+> Limite do plano Gratuito atingido: 3 anúncios por mês (você já criou 3 neste mês). Assine o Pro por R$ 39,90/mês em Minha garagem > Plano para anunciar sem limite, ou aguarde o próximo mês.
+
+Chamar a API direto dá o mesmo resultado que usar a tela. `GET /api/premium/uso` mostra o uso do mês e o limite do plano atual.
+
+### Painel admin
+
+Aba **Assinaturas e MRR** em `/admin.html` (`GET /api/admin/assinaturas`, só papel `ADMIN`): usuários em cada plano, assinaturas ativas, inadimplentes, **MRR de teste** (soma do valor mensal das assinaturas Pro ativas), assinaturas por status, lista de assinantes e os **últimos eventos do webhook**.
+
+### Como testar (roteiro do professor)
+
+1. Crie uma conta, habilite o modo anunciante: ela nasce no **Gratuito**.
+2. Em **Anunciar máquina**, crie 3 anúncios; o 4º é recusado pela API com a mensagem acima.
+3. Em **Minha garagem → Plano**, clique em **Assinar Pro** e pague com `4242 4242 4242 4242`, qualquer data futura e qualquer CVC.
+4. Volte ao app: a tela espera o webhook e mostra **Plano Pro · anúncios sem limite**.
+5. Clique em **Gerenciar assinatura** e cancele no portal. Quando chega o `customer.subscription.deleted`, a conta volta para o Gratuito.
+6. Entre como admin e abra **Assinaturas e MRR**.
+
+Cartões que recusam a renovação (por exemplo `4000 0000 0000 0341`) servem para ver o `invoice.payment_failed`.
+
+### Configuração (somente variáveis da stack no Portainer)
+
+| Variável | O que é |
+|---|---|
+| `STRIPE_SECRET_KEY` | Chave secreta **de teste** (`sk_test_…`); chave `sk_live_` é recusada pelo código |
+| `STRIPE_PRICE_ID` | Preço recorrente mensal do Pro (R$ 39,90, BRL) |
+| `STRIPE_PRICE_FREE_ID` | Opcional: preço Free (R$ 0/mês). Com ele no portal, o cliente troca Pro → Gratuito sozinho (o webhook grava o plano Gratuito) |
+| `STRIPE_WEBHOOK_SECRET` | Segredo do endpoint `https://<subdomínio>/api/stripe/webhook` |
+| `STRIPE_PORTAL_CONFIGURATION_ID` | Opcional: configuração do portal (`bpc_…`); vazio usa a padrão do modo de teste |
+| `APP_BASE_URL` | Origem pública, usada no retorno do checkout e do portal |
+
+Banco: [`database/migracao-saas-completo.sql`](database/migracao-saas-completo.sql) cria `premium_assinaturas` e `stripe_eventos` se ainda não existirem (aditiva e reexecutável).
+
 ---
 
 ## Sumário
+0. [SaaS completo: planos, limites e assinatura com Stripe](#saas-completo-planos-limites-e-assinatura-com-stripe)
 1. [O que está no ar](#1-o-que-está-no-ar)
 2. [Requisitos da atividade 10](#2-requisitos-da-atividade-10)
 3. [Arquitetura](#3-arquitetura)
@@ -50,17 +133,17 @@ A conta e os anúncios da Fazenda Boa Vista são criados automaticamente quando 
 | Meu perfil | `/perfil.html` | Dados pessoais, localização, apresentação pública, foto (MinIO) e troca de senha |
 | Modo anunciante | `/anunciante.html` | O locatário aceita os termos, completa telefone, cidade e UF e vira proprietário |
 | Anunciar máquina | `/anunciar.html` | Assistente em 3 passos: máquina, preço e local, fotos (até 8) |
-| Minha garagem | `/painel.html` | Anúncios do proprietário (editar, pausar, fotos), pedidos recebidos e plano Pro |
+| Minha garagem | `/painel.html` | Anúncios do proprietário (editar, pausar, fotos), pedidos recebidos, plano e uso do mês, **Assinar Pro** e **Gerenciar assinatura** |
 | Minhas reservas · Reserva | `/minhas-reservas.html`, `/reserva.html?id=` | Linha do tempo do pedido, ações por papel e contato liberado após a aprovação |
 | Pagamento | `/pagamento.html?reserva_id=` | Stripe Checkout (modo de teste) ou pagamento simulado aprovado/recusado |
-| Administração | `/admin.html` | Indicadores, moderação de anúncios, reservas, usuários e papéis, eventos de auditoria |
+| Administração | `/admin.html` | Indicadores, **assinaturas e MRR de teste**, moderação de anúncios, reservas, usuários e papéis, eventos de auditoria |
 | Créditos das fotos | `/creditos.html` | Autor e licença de cada foto do catálogo (Wikimedia Commons) |
 
 Layout responsivo, que funciona no celular.
 
 **Pagamento da locação:** o locatário só paga depois que o dono aprova, e a aprovação vale 24 horas. Com `STRIPE_SECRET_KEY` de teste configurada, o botão abre o Stripe Checkout (`mode=payment`), e a reserva só fica paga quando chega o webhook assinado. Sem Stripe, ou com `PAGAMENTO_SIMULADO=true` (padrão), a tela oferece **Simular pagamento aprovado/recusado**, que grava o mesmo registro em `locacao_pagamentos`. Nenhuma cobrança real acontece.
 
-**Plano Pro do anunciante:** o plano gratuito permite 2 anúncios ativos e o Pro permite 20, por assinatura Stripe (`mode=subscription`) em modo de teste.
+**Planos do anunciante:** Gratuito (3 anúncios novos por mês) e Pro (R$ 39,90/mês, sem limite), por assinatura Stripe (`mode=subscription`) em modo de teste, com portal do cliente. Detalhes na [seção SaaS](#saas-completo-planos-limites-e-assinatura-com-stripe).
 
 **Fora do escopo desta versão:** repasse automático ao proprietário (Stripe Connect), reembolso após pagamento e avaliações entre usuários.
 
@@ -88,7 +171,7 @@ flowchart LR
     U(["Navegador<br/>HTML + JS"])
 
     subgraph SaaS["SaaS: produtos de terceiros"]
-        STRIPE["Stripe<br/>checkout + webhook (teste)"]
+        STRIPE["Stripe (teste)<br/>assinatura, portal<br/>e webhooks"]
         SMTP["SMTP<br/>e-mail de recuperação"]
     end
 
@@ -199,7 +282,7 @@ O papel vem **só** do JWT emitido pelo auth-service, e quem barra é a API (`ex
 |---|---|---|---|---|
 | Ver catálogo e anúncios ativos | ✅ | ✅ | ✅ | ✅ |
 | Pedir reserva, pagar, cancelar antes da aprovação | **401** | ✅ | ✅ (de outros donos) | **403** |
-| Cadastrar/editar equipamento e anúncio, enviar fotos | **401** | **403** | ✅ (até 2 ativos; 20 no Pro) | **403** |
+| Cadastrar/editar equipamento e anúncio, enviar fotos | **401** | **403** | ✅ (Gratuito: 3 anúncios novos/mês, 402 acima disso; Pro: sem limite) | **403** |
 | Aprovar, recusar e concluir reserva | **401** | **403** | ✅ (só dos próprios anúncios) | **403** |
 | `/api/admin/*` (usuários, papéis, moderação, reservas, resumo) e `/api/logs` | **401** | **403** | **403** | ✅ |
 
@@ -233,6 +316,7 @@ A api e o auth-service mandam `POST /logs` para o log-service. Se ele estiver fo
 | `RESERVA_SOLICITADA`, `RESERVA_APROVADA`, `RESERVA_RECUSADA`, `RESERVA_CANCELADA`, `RESERVA_CONCLUIDA` | Ciclo da reserva |
 | `LOCACAO_CHECKOUT_INICIADO`, `LOCACAO_PAGA`, `LOCACAO_PAGAMENTO_FALHO`, `LOCACAO_APROVACAO_EXPIRADA` | Pagamento da locação |
 | `ANUNCIO_SUSPENSO`, `ANUNCIO_LIBERADO`, `ROLE_ALTERADA` | Moderação e papéis (admin) |
+| `ASSINATURA_CHECKOUT_CONCLUIDO`, `ASSINATURA_ATUALIZADA`, `ASSINATURA_ENCERRADA`, `ASSINATURA_FATURA_PAGA`, `ASSINATURA_PAGAMENTO_FALHOU` | Webhooks da assinatura (uma vez por evento) |
 | `ANUNCIANTE_HABILITADO` | Locatário virou proprietário |
 | `LOGIN`, `LOGOUT`, `PERFIL_ATUALIZADO`, `FOTO_PERFIL_ATUALIZADA`, `FOTO_PERFIL_REMOVIDA` | Conta e perfil |
 | `ACAO_NEGADA` | Toda ação barrada com 403 |
@@ -275,9 +359,9 @@ npm run docs:validate     # valida o contrato OpenAPI
 
 `git push` na `main` → o GitHub Actions ([`.github/workflows/cicd.yml`](.github/workflows/cicd.yml)) roda os testes, valida o OpenAPI, constrói as 4 imagens e as publica no GHCR com a tag `sha-<commit completo>`. No Portainer, na stack `girorural-luana-abrantes`, troca-se `IMAGE_TAG` para a nova tag e clica-se em **Update the stack**. Cada serviço tem `mem_limit: 1g`.
 
-**Variáveis da stack no Portainer** (nunca no repositório): banco (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`), sessão (`JWT_SECRET`), MinIO (`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`), e-mail (`MAIL_*`), Stripe (`STRIPE_SECRET_KEY`, `STRIPE_LOCACAO_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` e `APP_BASE_URL`, opcionais) e catálogo (`CATALOGO_PROPRIETARIO_EMAIL`, `CATALOGO_PROPRIETARIO_SENHA`, `CATALOGO_INICIAL`, `PAGAMENTO_SIMULADO`).
+**Variáveis da stack no Portainer** (nunca no repositório): banco (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`), sessão (`JWT_SECRET`), MinIO (`MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_BUCKET`), e-mail (`MAIL_*`), Stripe de teste (`STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PORTAL_CONFIGURATION_ID`, `STRIPE_LOCACAO_WEBHOOK_SECRET` e `APP_BASE_URL`) e catálogo (`CATALOGO_PROPRIETARIO_EMAIL`, `CATALOGO_PROPRIETARIO_SENHA`, `CATALOGO_INICIAL`, `PAGAMENTO_SIMULADO`).
 
-**Migrations em produção** são manuais, uma vez, com backup antes, pelo cliente MySQL apontando para o banco da disciplina, na ordem da [seção 4](#4-domínio-tabelas-migrations-e-seed). O seed não precisa de passo manual: a API o aplica ao subir.
+**Migrations em produção** são manuais, uma vez, com backup antes, pelo cliente MySQL apontando para o banco da disciplina, na ordem da [seção 4](#4-domínio-tabelas-migrations-e-seed), mais [`database/migracao-saas-completo.sql`](database/migracao-saas-completo.sql) para as assinaturas. O seed não precisa de passo manual: a API o aplica ao subir.
 
 ## 11. Documentação
 

@@ -23,7 +23,7 @@ const carregados = new Set();
 function abrir(aba) {
   for (const a of abas) { const sel = a === aba; a.setAttribute('aria-selected', String(sel)); a.tabIndex = sel ? 0 : -1; $('#' + a.getAttribute('aria-controls')).hidden = !sel; }
   const nome = aba.id.slice(2); history.replaceState(null, '', '#' + nome);
-  if (!carregados.has(nome)) { carregados.add(nome); ({ visao: carregarVisao, moderacao: carregarAnuncios, reservas: carregarReservas, usuarios: carregarUsuarios, auditoria: carregarAuditoria })[nome]().catch(e => avisar(e.message, true)); }
+  if (!carregados.has(nome)) { carregados.add(nome); ({ visao: carregarVisao, assinaturas: carregarAssinaturas, moderacao: carregarAnuncios, reservas: carregarReservas, usuarios: carregarUsuarios, auditoria: carregarAuditoria })[nome]().catch(e => avisar(e.message, true)); }
 }
 abas.forEach((a, i) => { a.onclick = () => abrir(a); a.onkeydown = e => { const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key]; if (d) { const n = abas[(i + d + abas.length) % abas.length]; n.focus(); abrir(n); } }; });
 
@@ -137,6 +137,30 @@ function desenharAuditoria() {
 }
 $('#filtroAuditoria').onchange = desenharAuditoria;
 $('#filtroAnuncios').onsubmit = e => { e.preventDefault(); carregarAnuncios().catch(x => avisar(x.message, true)); };
+const ROT_SUB = { active: 'Ativa', past_due: 'Inadimplente', unpaid: 'Não paga', canceled: 'Cancelada', incomplete: 'Incompleta', incomplete_expired: 'Expirada', trialing: 'Em teste', pendente: 'Pendente', preco_invalido: 'Preço fora do plano', gratuito: 'Gratuito (R$ 0)' };
+const BADGE_SUB = { active: 'pago', past_due: 'falho', unpaid: 'falho', canceled: 'cancelada', incomplete: 'pendente', pendente: 'pendente' };
+const dataHora = v => v ? new Date(v).toLocaleString('pt-BR') : '—';
+async function carregarAssinaturas() {
+  const r = await api('/api/admin/assinaturas');
+  const stat = (rot, val, sub) => { const s = el('div', 'stat'); s.append(el('span', '', rot), el('strong', '', String(val))); if (sub) s.append(el('small', '', sub)); return s; };
+  const free = r.planos.find(p => p.preco_centavos === 0), pro = r.planos.find(p => p.preco_centavos > 0);
+  $('#saasStats').replaceChildren(
+    stat('MRR de teste', moeda(r.mrr), `${r.assinaturas_ativas} × ${moeda(pro.preco_centavos / 100)}/mês`),
+    stat('Assinaturas ativas', r.assinaturas_ativas, `${r.inadimplentes} com pagamento pendente`),
+    stat('Usuários no Pro', pro.usuarios, pro.limite),
+    stat('Usuários no Gratuito', free.usuarios, free.limite));
+  const linha = (rotulo, valor, cls) => { const l = el('div', 'resumo-linha'); l.append(el('span', `badge ${cls || ''}`, rotulo), el('strong', '', String(valor))); return l; };
+  $('#porPlano').replaceChildren(...r.planos.map(p => linha(`${p.plano} · ${p.preco_centavos ? moeda(p.preco_centavos / 100) + '/mês' : 'R$ 0'}`, p.usuarios, p.preco_centavos ? 'pago' : '')));
+  const st = Object.entries(r.assinaturas_por_status);
+  $('#porStatus').replaceChildren(...(st.length ? st.map(([k, v]) => linha(ROT_SUB[k] || k, v, BADGE_SUB[k])) : [el('p', 'notice', 'Nenhuma assinatura ainda.')]));
+  const tb = $('#assinantes');
+  if (!r.assinantes.length) vazio(tb, 5, 'Nenhum assinante ainda.');
+  else tb.replaceChildren(...r.assinantes.map(a => { const tr = el('tr'); const u = el('div'); u.append(el('strong', '', a.nome), el('br'), el('small', '', a.email)); tr.append(td(u), td(el('span', `badge ${a.plano === 'Pro' ? 'pago' : ''}`, a.plano)), td(el('span', `badge ${BADGE_SUB[a.status] || ''}`, ROT_SUB[a.status] || a.status)), td(a.situacao), td(a.termina_em ? `termina ${dataHora(a.termina_em)}` : a.renovacao_em ? `renova ${dataHora(a.renovacao_em)}` : '—')); return tr; }));
+  const te = $('#stripeEventos');
+  if (!r.eventos.length) vazio(te, 3, 'Nenhum evento recebido ainda.');
+  else te.replaceChildren(...r.eventos.map(e => { const tr = el('tr'); const code = el('code', '', e.id); tr.append(td(dataHora(e.processado_em)), td(el('strong', '', e.tipo)), td(code)); return tr; }));
+}
+
 $('#filtroReservas').onsubmit = e => { e.preventDefault(); carregarReservas().catch(x => avisar(x.message, true)); };
 
 (async () => {

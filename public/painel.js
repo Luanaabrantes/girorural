@@ -68,8 +68,32 @@ async function carregarReservas(){
   if(!reservas.length)box.textContent='Nenhuma solicitação recebida ainda. Quando um produtor pedir seu equipamento, ela aparece aqui.';const pend=reservas.filter(r=>r.estado==='solicitada').length;const cnt=document.querySelector('#pendentes');if(cnt){cnt.textContent=pend?String(pend):'';cnt.hidden=!pend};
 }
 
-async function carregarPlano(){try{const plano=await api('/api/premium/status'),ads=await api('/api/anuncios/meus'),count=ads.anuncios.filter(a=>a.estado==='ativo'&&!String(a.foto_url||'').startsWith('/imagens/catalogo/maquinas/')).length,limit=plano.premium?20:2;$('#plano').textContent=`Plano ${plano.premium?'Pro':'Gratuito'} · ${count} de ${limit} anúncios ativos${plano.premium?' · R$ 39,90/mês':''}`;$('#assinar').hidden=plano.premium||!plano.pode_assinar}catch(error){$('#plano').textContent=error.message}}
+// O plano exibido vem do banco (atualizado pelo webhook), nunca do retorno do checkout.
+async function carregarPlano(){
+  const info=$('#plano'),aviso=$('#planoAviso'),checkout=$('#checkoutStatus');
+  try{
+    const [plano,uso]=await Promise.all([api('/api/premium/status'),api('/api/premium/uso')]);
+    const limite=uso.limite_anuncios_mes==null?'anúncios sem limite':`${uso.anuncios_criados_mes} de ${uso.limite_anuncios_mes} anúncios criados este mês`;
+    info.textContent=`Plano ${plano.plano} · ${limite}${plano.premium?' · R$ 39,90/mês':''} · ${plano.situacao}`;
+    const datas=plano.termina_em?`O Pro termina em ${new Date(plano.termina_em).toLocaleDateString('pt-BR')}.`:plano.renovacao_em?`Renova em ${new Date(plano.renovacao_em).toLocaleDateString('pt-BR')}.`:'';
+    if(plano.pagamento_pendente){aviso.textContent='A cobrança da renovação falhou. Atualize o cartão em Gerenciar assinatura; sem pagamento, a conta volta para o plano Gratuito no fim do período pago.';aviso.className='notice error';aviso.hidden=false}
+    else if(!plano.premium&&uso.restantes===0){aviso.textContent='Você usou os 3 anúncios do plano Gratuito neste mês. Assine o Pro para anunciar sem limite.';aviso.className='notice';aviso.hidden=false}
+    else{aviso.textContent=datas;aviso.className='notice';aviso.hidden=!datas}
+    $('#assinar').hidden=plano.premium||!plano.pode_assinar;
+    $('#gerenciar').hidden=!plano.pode_gerenciar;
+    return plano;
+  }catch(error){info.textContent=error.message}
+}
+// Depois do checkout, espera o webhook confirmar (até ~40 s) consultando o banco.
+async function aguardarWebhook(){
+  const checkout=$('#checkoutStatus');checkout.className='notice';
+  checkout.textContent='Pagamento enviado ao Stripe. Aguardando o webhook confirmar a assinatura...';
+  for(let i=0;i<20;i++){const plano=await carregarPlano();if(plano?.premium){checkout.textContent='Assinatura Pro confirmada pelo webhook. O limite de anúncios foi removido.';checkout.className='success';return}await new Promise(r=>setTimeout(r,2000))}
+  checkout.textContent='O webhook ainda não chegou. O plano muda para Pro assim que o Stripe confirmar; recarregue a página em instantes.';
+}
 
 async function decidir(id,estado){try{await api(`/api/reservas/${id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({estado})});avisar('Solicitação atualizada.');await carregarReservas()}catch(error){avisar(error.message,true)}}
 $('#assinar').onclick=async()=>{try{const {url}=await api('/api/premium/checkout',{method:'POST'});location.assign(url)}catch(error){$('#checkoutStatus').textContent=error.message;$('#checkoutStatus').className='error'}};
+$('#gerenciar').onclick=async()=>{try{const {url}=await api('/api/premium/portal',{method:'POST'});location.assign(url)}catch(error){$('#checkoutStatus').textContent=error.message;$('#checkoutStatus').className='error'}};
+{const retorno=new URLSearchParams(location.search).get('plano');if(retorno==='sucesso')aguardarWebhook();else if(retorno==='cancelado'){$('#checkoutStatus').textContent='Checkout cancelado. Nada foi cobrado e o plano continua o mesmo.';$('#checkoutStatus').className='notice'}else if(retorno==='portal'){$('#checkoutStatus').textContent='Alterações feitas no portal chegam pelo webhook do Stripe e aparecem aqui em instantes.';$('#checkoutStatus').className='notice';setTimeout(carregarPlano,4000)}}
 carregar();

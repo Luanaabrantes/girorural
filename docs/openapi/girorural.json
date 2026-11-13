@@ -950,6 +950,10 @@
                     },
                     "pode_assinar": {
                       "type": "boolean"
+                    },
+                    "pode_gerenciar": {
+                      "type": "boolean",
+                      "description": "Há assinatura vinculada; o botão Gerenciar assinatura abre o portal do cliente"
                     }
                   }
                 }
@@ -961,6 +965,117 @@
           },
           "503": {
             "description": "Banco, migração ou autenticação indisponível"
+          }
+        }
+      }
+    },
+    "/api/premium/uso": {
+      "get": {
+        "tags": [
+          "Assinatura"
+        ],
+        "summary": "Consultar o uso do mês e o limite do plano do usuário da sessão",
+        "operationId": "get_api_premium_uso",
+        "description": "Plano lido do banco a cada requisição. Gratuito cria até 3 anúncios por mês; Pro não tem limite (limite_anuncios_mes null).",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plano, anúncios criados no mês corrente e limite",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "plano",
+                    "plano_nome",
+                    "anuncios_criados_mes",
+                    "limite_anuncios_mes",
+                    "restantes"
+                  ],
+                  "properties": {
+                    "plano": {
+                      "type": "string",
+                      "enum": [
+                        "free",
+                        "pro"
+                      ]
+                    },
+                    "plano_nome": {
+                      "type": "string"
+                    },
+                    "anuncios_criados_mes": {
+                      "type": "integer"
+                    },
+                    "limite_anuncios_mes": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "restantes": {
+                      "type": "integer",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sessão ausente ou inválida"
+          },
+          "503": {
+            "description": "Banco indisponível"
+          }
+        }
+      }
+    },
+    "/api/premium/portal": {
+      "post": {
+        "tags": [
+          "Assinatura"
+        ],
+        "summary": "Abrir o portal do cliente do Stripe (Gerenciar assinatura)",
+        "operationId": "post_api_premium_portal",
+        "description": "Cria uma sessão do Billing Portal (modo de teste) para o customer guardado no usuário da sessão. Troca de plano e cancelamento acontecem no Stripe e chegam ao banco pelos webhooks.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "URL do portal do cliente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "url"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Objeto Stripe fora do modo de teste"
+          },
+          "401": {
+            "description": "Sessão ausente ou inválida"
+          },
+          "409": {
+            "description": "Usuário ainda sem customer no Stripe (nunca assinou)"
+          },
+          "503": {
+            "description": "Stripe não configurado ou indisponível"
           }
         }
       }
@@ -1021,7 +1136,7 @@
         "summary": "Receber webhook Stripe assinado de teste",
         "operationId": "post_api_stripe_webhook",
         "security": [],
-        "description": "Corpo bruto validado pelo SDK. invoice.paid confirma pagamento, vínculos e período da linha da fatura; eventos da assinatura atualizam situação sem comprovar pagamento. Acesso expira por data mesmo sem webhook; período pago é monotônico e status tem marca temporal. Registro persistente transacional e idempotente, sem payload. Falha 503 permite reenvio.",
+        "description": "Corpo bruto validado pelo SDK. Trata checkout.session.completed, customer.subscription.created/updated/deleted, invoice.paid e invoice.payment_failed. A fatura paga é relida do Stripe (invoice.paid ou latest_invoice da assinatura) e confirma pagamento, vínculos e período da linha da fatura; eventos da assinatura atualizam situação sem comprovar pagamento. Acesso expira por data mesmo sem webhook; período pago é monotônico e status tem marca temporal. Registro persistente transacional e idempotente, sem payload. Falha 503 permite reenvio.",
         "parameters": [
           {
             "in": "header",
@@ -3323,11 +3438,11 @@
           "401": {
             "description": "Sessão ausente"
           },
+          "402": {
+            "description": "Limite do plano Gratuito atingido (3 anúncios por mês); a mensagem diz como liberar"
+          },
           "403": {
             "description": "Requer PROPRIETARIO"
-          },
-          "409": {
-            "description": "Limite do plano atingido"
           }
         }
       }
@@ -4076,6 +4191,34 @@
           },
           "403": {
             "description": "Requer ADMIN"
+          }
+        }
+      }
+    },
+    "/api/admin/assinaturas": {
+      "get": {
+        "tags": [
+          "Administração"
+        ],
+        "summary": "Painel SaaS - usuários por plano, assinaturas ativas, MRR de teste e últimos eventos do Stripe (admin)",
+        "description": "Plano calculado do banco (cópia mantida pelos webhooks). MRR de teste é a soma do valor mensal das assinaturas Pro com status active. Eventos vêm de stripe_eventos, a tabela de idempotência do webhook.",
+        "security": [
+          {
+            "sessao": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Indicadores do SaaS em modo de teste"
+          },
+          "401": {
+            "description": "Sessão ausente"
+          },
+          "403": {
+            "description": "Requer ADMIN"
+          },
+          "503": {
+            "description": "Banco indisponível"
           }
         }
       }

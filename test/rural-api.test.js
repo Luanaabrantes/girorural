@@ -7,6 +7,14 @@ const { Readable } = require('node:stream');
 const storage = require('../src/minio');
 const { criarRotasRural } = require('../src/rural/rotas');
 
+// Usuários com assinatura Pro paga e válida (cópia no banco mantida pelo webhook).
+const planoPro = new Set();
+const PRICE_TESTE = 'price_pro_teste';
+process.env.STRIPE_PRICE_ID = PRICE_TESTE;
+function linhaPro(usuarioId) {
+  const agora = Math.floor(Date.now() / 1000);
+  return { usuario_id: usuarioId, stripe_customer_id: 'cus_t', stripe_subscription_id: 'sub_t', stripe_paid_invoice_id: 'in_t', stripe_price_id: PRICE_TESTE, paid_period_start: agora - 60, paid_period_end: agora + 86400, cancel_at: null, status: 'active' };
+}
 function bancoControlado() {
   const users = new Map([[1, 'PROPRIETARIO'], [2, 'PROPRIETARIO'], [3, 'LOCATARIO'], [4, 'LOCATARIO']]);
   const equipamentos = [{ id: 10, proprietario_id: 1, nome: 'Trator', categoria: 'Tratores', estado: 'ativo', descricao: 'Uso geral', imagem_chave: null }];
@@ -43,11 +51,12 @@ function bancoControlado() {
     if (sql.includes('SELECT id,descricao FROM equipamentos WHERE id=? AND proprietario_id=?')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]))];
     if (sql.includes('SELECT id FROM equipamentos WHERE id=? AND proprietario_id=?')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]))];
     if (sql.includes('FROM equipamentos WHERE proprietario_id=?')) return [equipamentos.filter(e => e.proprietario_id === Number(p[0]))];
-    if (sql.includes('SELECT * FROM premium_assinaturas')) return [[]];
+    if (sql.includes('SELECT * FROM premium_assinaturas')) return [planoPro.has(Number(p[0])) ? [linhaPro(Number(p[0]))] : []];
     if (sql.includes('SELECT e.id,e.imagem_chave FROM anuncios a')) return [anuncios.filter(a => a.id === Number(p[0]) && a.proprietario_id === Number(p[1])).map(a => ({ id: a.equipamento_id, imagem_chave: equipamentos.find(e => e.id === a.equipamento_id)?.imagem_chave }))];
     if (sql.startsWith('UPDATE equipamentos SET imagem_chave=')) { const e = equipamentos.find(x => x.id === Number(p[1]) && x.proprietario_id === Number(p[2])); if (e) e.imagem_chave = p[0]; return [{ affectedRows: e ? 1 : 0 }]; }
     if (sql.includes('SELECT e.imagem_chave,a.estado anuncio_estado')) return [anuncios.filter(a => a.id === Number(p[0])).map(a => ({ imagem_chave: equipamentos.find(e => e.id === a.equipamento_id)?.imagem_chave, anuncio_estado: a.estado, equipamento_estado: equipamentos.find(e => e.id === a.equipamento_id)?.estado, proprietario_id: a.proprietario_id }))];
-    if (sql.includes('SELECT COUNT(*) total FROM anuncios')) return [[{ total: anuncios.filter(a => a.proprietario_id === Number(p[0]) && a.estado === 'ativo').length }]];
+    // Anúncios criados no mês: o anúncio 100 é antigo; os criados durante o teste (id >= 101) são deste mês.
+    if (sql.includes('SELECT COUNT(*) total FROM anuncios') && sql.includes('criado_em >=')) return [[{ total: anuncios.filter(a => a.proprietario_id === Number(p[0]) && a.id >= 101).length }]];
     if (sql.startsWith('INSERT INTO equipamentos')) { const e = { id: nextEquipamento++, proprietario_id: p[6], nome: p[0], categoria: p[1], marca: p[2], modelo: p[3], ano: p[4], descricao: p[5], informacoes_adicionais: p[7], estado: 'ativo' }; equipamentos.push(e); return [{ insertId: e.id, affectedRows: 1 }]; }
     if (sql.startsWith('SELECT id FROM equipamentos WHERE id=? AND proprietario_id=? AND estado=')) return [equipamentos.filter(e => e.id === Number(p[0]) && e.proprietario_id === Number(p[1]) && e.estado === 'ativo')];
     if (sql.startsWith('INSERT INTO anuncios')) { const a = { id: nextAnuncio++, equipamento_id: p[0], proprietario_id: p[1], diaria: p[2], cidade: p[3], uf: p[4], condicoes: p[5], estado: p[6] }; anuncios.push(a); return [{ insertId: a.id, affectedRows: 1 }]; }
@@ -113,11 +122,22 @@ test('API GiroRural aplica papel, isolamento, projeção pública e registra eve
     assert.equal(a.status, 201); assert.equal(anuncios.find(x => x.id === a.body.id).proprietario_id, 1);
     assert.equal(eventos.filter(x => x.acao === 'EQUIPAMENTO_CADASTRADO').length, 1); assert.equal(eventos.filter(x => x.acao === 'ANUNCIO_CRIADO').length, 1);
   });
-  await t.test('Free permite 2 anúncios ativos e impede ativação acima do limite', async () => {
-    const eq = await request('/api/equipamentos', 'donoA', 'POST', { nome: 'Colheitadeira', categoria: 'Colheita' });
-    const draft = await request('/api/anuncios', 'donoA', 'POST', { equipamento_id: eq.body.id, diaria: 500, cidade: 'Sertãozinho', uf: 'SP', estado: 'rascunho' });
-    assert.equal(draft.status, 201);
-    assert.equal((await request(`/api/anuncios/${draft.body.id}`, 'donoA', 'PUT', { estado: 'ativo' })).status, 409);
+  await t.test('Free cria 3 anúncios por mês, a API recusa o 4º com mensagem clara e o Pro não tem limite', async () => {
+    const criar = async (estado = 'ativo') => {
+      const eq = await request('/api/equipamentos', 'donoA', 'POST', { nome: 'Colheitadeira', categoria: 'Colheita' });
+      return request('/api/anuncios', 'donoA', 'POST', { equipamento_id: eq.body.id, diaria: 500, cidade: 'Sertãozinho', uf: 'SP', estado });
+    };
+    // O teste anterior já criou 1 anúncio neste mês; rascunho também conta.
+    assert.equal((await criar('rascunho')).status, 201);
+    assert.equal((await criar()).status, 201);
+    const bloqueado = await criar();
+    assert.equal(bloqueado.status, 402); assert.equal(bloqueado.body.codigo, 'LIMITE_DO_PLANO');
+    assert.match(bloqueado.body.mensagem, /3 anúncios por mês/); assert.match(bloqueado.body.mensagem, /Assine o Pro/);
+    planoPro.add(1);
+    try { for (let i = 0; i < 3; i++) assert.equal((await criar()).status, 201); }
+    finally { planoPro.delete(1); }
+    // Cancelou e o webhook voltou a conta para o Free: o limite volta a valer na próxima requisição.
+    assert.equal((await criar()).status, 402);
   });
   await t.test('usuário B não edita anúncio A; A pode editar, e detalhes públicos não vazam dono', async () => {
     assert.equal((await request('/api/anuncios/100', 'donoB', 'PUT', { cidade: 'Outra' })).status, 404);

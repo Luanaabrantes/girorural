@@ -4,7 +4,7 @@ const sharp = require('sharp');
 const dbPadrao = require('../database');
 const autenticarPadrao = require('../middlewareAuth');
 const storage = require('../minio');
-const { acessoValido } = require('../premiumPeriodo');
+const { exigirLimiteAnuncios } = require('../planos');
 
 const papelsValidos = new Set(['ADMIN', 'PROPRIETARIO', 'LOCATARIO']);
 const papel = role => ({ admin: 'ADMIN', usuario: 'LOCATARIO', ADMIN: 'ADMIN', PROPRIETARIO: 'PROPRIETARIO', LOCATARIO: 'LOCATARIO' }[role] || role);
@@ -27,10 +27,6 @@ function dataISO(v, nome) {
   if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== v) throw erro(400, `${nome} inválida.`);
   return v;
 }
-async function limiteAtivos(c, usuarioId) {
-  const [plans] = await c.execute('SELECT * FROM premium_assinaturas WHERE usuario_id=?', [usuarioId]);
-  return acessoValido(plans[0], process.env.STRIPE_PRICE_ID, Math.floor(Date.now() / 1000)) ? 20 : 2;
-}
 function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento = registrarEvento } = {}) {
   const router = express.Router();
   router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
@@ -50,7 +46,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
   };
   const executar = handler => async (req, res) => {
     try { await handler(req, res); }
-    catch (e) { if (e.status) return res.status(e.status).json({ mensagem: e.message }); console.error('Falha na operação GiroRural.'); return res.status(503).json({ mensagem: 'Serviço temporariamente indisponível.' }); }
+    catch (e) { if (e.status) return res.status(e.status).json({ mensagem: e.message, ...(e.codigo ? { codigo: e.codigo } : {}) }); console.error('Falha na operação GiroRural.'); return res.status(503).json({ mensagem: 'Serviço temporariamente indisponível.' }); }
   };
   const fields = `a.id, e.nome, e.categoria, e.marca, e.modelo, e.ano, e.descricao, e.informacoes_adicionais, a.diaria, a.cidade, a.uf, a.condicoes, e.imagem_chave, u.id proprietario_id, CASE WHEN e.descricao LIKE '[DEMO FICTÍCIO]%' THEN 'Proprietário' ELSE COALESCE(NULLIF(p.nome_exibicao,''),u.nome) END proprietario_nome`;
   const formatosImagem = new Set(['image/jpeg','image/png','image/webp']);
@@ -413,7 +409,7 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
    *     summary: Criar anúncio para equipamento próprio
    *     security: [{sessao: []}]
    *     requestBody: {required: true, content: {application/json: {schema: {$ref: '#/components/schemas/AnuncioNovo'}}}}
-   *     responses: {'201': {description: Anúncio criado}, '400': {description: Dados inválidos}, '401': {description: Sessão ausente}, '403': {description: Requer PROPRIETARIO}, '409': {description: Limite do plano atingido}}
+   *     responses: {'201': {description: Anúncio criado}, '400': {description: Dados inválidos}, '401': {description: Sessão ausente}, '402': {description: 'Limite do plano Gratuito atingido (3 anúncios por mês); a mensagem diz como liberar'}, '403': {description: Requer PROPRIETARIO}}
    */
   router.post('/anuncios', autenticar, exigir('PROPRIETARIO'), executar(async (req, res) => {
     const b = req.body || {}, equipamentoId = id(b.equipamento_id), diaria = Number(b.diaria);
@@ -426,12 +422,9 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
       const [eq] = await c.execute('SELECT id,descricao FROM equipamentos WHERE id=? AND proprietario_id=? AND estado=\'ativo\' FOR UPDATE', [equipamentoId, req.usuario.id]);
       if (!eq.length) throw erro(404, 'Equipamento não encontrado.');
       if (ehDemonstrativo(eq[0].descricao)) throw erro(409, 'Equipamentos demonstrativos não aceitam novos anúncios.');
-      if ((b.estado || 'ativo') === 'ativo') {
-        const max = await limiteAtivos(c, req.usuario.id);
-        const [counts] = await c.execute("SELECT COUNT(*) total FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? AND a.estado='ativo' AND (e.imagem_chave IS NULL OR e.imagem_chave NOT LIKE 'catalogo/maquinas/%')", [req.usuario.id]);
-        if (Number(counts[0].total) >= max) throw erro(409, `Limite do plano atingido: ${max} anúncios ativos.`);
-      }
       if (b.estado !== undefined && !['ativo','rascunho'].includes(b.estado)) throw erro(400, 'Estado inválido.');
+      // Limite do plano lido do banco a cada requisição (Free: 3 anúncios por mês; Pro: sem limite).
+      await exigirLimiteAnuncios(c, req.usuario.id);
       const [r] = await c.execute('INSERT INTO anuncios (equipamento_id,proprietario_id,diaria,cidade,uf,condicoes,estado) VALUES (?,?,?,?,?,?,?)', [equipamentoId, req.usuario.id, diaria.toFixed(2), cidade, uf, texto(b.condicoes, 'Condições', 5000, false), b.estado || 'ativo']);
       anuncioId = r.insertId; await c.commit();
     } catch (e) { await c.rollback(); throw e; } finally { c.release(); }
@@ -469,11 +462,6 @@ function criarRotasRural({ db = dbPadrao, autenticar = autenticarPadrao, evento 
         if (ehDemonstrativo(own[0].descricao)) throw erro(409, 'Anúncios demonstrativos não podem ser alterados.');
         if (own[0].equipamento_estado !== 'ativo') throw erro(409, 'Não é possível ativar anúncio de equipamento inativo.');
         if (own[0].moderacao === 'suspenso') throw erro(409, 'Anúncio suspenso pela moderação. Ajuste o conteúdo e fale com o suporte para liberá-lo.');
-        if (own[0].estado !== 'ativo') {
-          const max = await limiteAtivos(c, req.usuario.id);
-          const [counts] = await c.execute("SELECT COUNT(*) total FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.proprietario_id=? AND a.estado='ativo' AND (e.imagem_chave IS NULL OR e.imagem_chave NOT LIKE 'catalogo/maquinas/%')", [req.usuario.id]);
-          if (Number(counts[0].total) >= max) throw erro(409, `Limite do plano atingido: ${max} anúncios ativos.`);
-        }
       }
       const [ad] = await c.execute('SELECT a.id,e.descricao FROM anuncios a JOIN equipamentos e ON e.id=a.equipamento_id WHERE a.id=? AND a.proprietario_id=? FOR UPDATE', [anuncioId, req.usuario.id]);
       if (!ad.length) throw erro(404, 'Anúncio não encontrado.');

@@ -86,10 +86,9 @@
       if (perfil.uf && !el.uf.value) el.uf.value = perfil.uf;
     } catch { /* perfil é só sugestão */ }
     try {
-      const [plano, meus] = await Promise.all([api('/api/premium/status'), api('/api/anuncios/meus')]);
-      const ativos = meus.anuncios.filter(a => a.estado === 'ativo' && !String(a.foto_url || '').startsWith('/imagens/catalogo/maquinas/')).length, max = plano.premium ? 20 : 2;
-      $('limite').textContent = `Plano ${plano.premium ? 'Pro' : 'Gratuito'}: ${ativos} de ${max} anúncios ativos.${ativos >= max ? ' Você atingiu o limite; salve como rascunho ou assine o Pro na Minha garagem.' : ''}`;
-      if (ativos >= max) el.rascunho.checked = true;
+      const uso = await api('/api/premium/uso');
+      if (uso.limite_anuncios_mes == null) $('limite').textContent = 'Plano Pro: anúncios sem limite.';
+      else $('limite').textContent = `Plano Gratuito: ${uso.anuncios_criados_mes} de ${uso.limite_anuncios_mes} anúncios criados este mês.${uso.restantes === 0 ? ' Você atingiu o limite; assine o Pro em Minha garagem > Plano para anunciar sem limite.' : ''}`;
     } catch { /* informativo */ }
   });
 })();

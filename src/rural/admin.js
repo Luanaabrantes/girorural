@@ -5,6 +5,8 @@ const express = require('express');
 const dbPadrao = require('../database');
 const autenticarPadrao = require('../middlewareAuth');
 const { papel, registrarEvento } = require('./rotas');
+const { acessoValido, estadoPublico } = require('../premiumPeriodo');
+const { PLANOS } = require('../planos');
 
 const erro = (status, mensagem) => Object.assign(new Error(mensagem), { status });
 const id = valor => {
@@ -13,7 +15,7 @@ const id = valor => {
 };
 const busca = v => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 80) : null);
 
-function criarRotasAdminRural({ db = dbPadrao, autenticar = autenticarPadrao, evento = registrarEvento } = {}) {
+function criarRotasAdminRural({ db = dbPadrao, autenticar = autenticarPadrao, evento = registrarEvento, env = process.env, now = () => Math.floor(Date.now() / 1000) } = {}) {
   const router = express.Router();
   router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   const auditar = async (req, acao, detalhes) => {
@@ -143,6 +145,47 @@ function criarRotasAdminRural({ db = dbPadrao, autenticar = autenticarPadrao, ev
       JOIN usuarios us ON us.id=r.solicitante_id JOIN usuarios up ON up.id=a.proprietario_id
       ${where} ORDER BY r.id DESC LIMIT 500`, vals);
     res.json({ reservas: rows.map(r => ({ ...r, nome: String(r.nome).replace(/^DEMO · /, '') })) });
+  }));
+
+  /** @openapi
+   * /api/admin/assinaturas:
+   *   get:
+   *     tags: [Administração]
+   *     summary: Painel SaaS - usuários por plano, assinaturas ativas, MRR de teste e últimos eventos do Stripe (admin)
+   *     description: Plano calculado do banco (cópia mantida pelos webhooks). MRR de teste é a soma do valor mensal das assinaturas Pro com status active. Eventos vêm de stripe_eventos, a tabela de idempotência do webhook.
+   *     security: [{sessao: []}]
+   *     responses: {'200': {description: 'Indicadores do SaaS em modo de teste'}, '401': {description: Sessão ausente}, '403': {description: Requer ADMIN}, '503': {description: Banco indisponível}}
+   */
+  router.get('/assinaturas', ...protegido, executar(async (req, res) => {
+    const price = env.STRIPE_PRICE_ID, agora = now();
+    const [[usuarios], [assinaturas], [eventos]] = await Promise.all([
+      db.execute('SELECT COUNT(*) total FROM usuarios'),
+      db.execute(`SELECT pa.*, u.nome, u.email FROM premium_assinaturas pa JOIN usuarios u ON u.id=pa.usuario_id
+        WHERE pa.stripe_customer_id IS NOT NULL ORDER BY pa.usuario_id DESC LIMIT 500`),
+      db.execute('SELECT id, tipo, processado_em FROM stripe_eventos ORDER BY processado_em DESC, id DESC LIMIT 20')
+    ]);
+    const total = Number(usuarios[0]?.total || 0);
+    const pro = assinaturas.filter(a => acessoValido(a, price, agora));
+    const ativas = pro.filter(a => a.status === 'active');
+    const porStatus = {};
+    for (const a of assinaturas) if (a.stripe_subscription_id) porStatus[a.status] = (porStatus[a.status] || 0) + 1;
+    const mrr = ativas.length * PLANOS.pro.preco_centavos;
+    res.json({
+      modo: 'teste', moeda: 'BRL',
+      planos: [
+        { plano: PLANOS.free.nome, preco_centavos: PLANOS.free.preco_centavos, limite: `${PLANOS.free.anuncios_por_mes} anúncios por mês`, usuarios: total - pro.length },
+        { plano: PLANOS.pro.nome, preco_centavos: PLANOS.pro.preco_centavos, limite: 'sem limite', usuarios: pro.length }
+      ],
+      assinaturas_ativas: ativas.length,
+      assinaturas_por_status: porStatus,
+      inadimplentes: assinaturas.filter(a => a.payment_problem || ['past_due', 'unpaid'].includes(a.status)).length,
+      mrr_centavos: mrr, mrr: (mrr / 100).toFixed(2),
+      assinantes: assinaturas.filter(a => a.stripe_subscription_id).slice(0, 50).map(a => {
+        const e = estadoPublico(a, price, agora);
+        return { usuario_id: a.usuario_id, nome: a.nome, email: a.email, plano: e.plano, status: a.status, situacao: e.situacao, renovacao_em: e.renovacao_em, termina_em: e.termina_em };
+      }),
+      eventos: eventos.map(e => ({ id: e.id, tipo: e.tipo, processado_em: e.processado_em }))
+    });
   }));
 
   return router;

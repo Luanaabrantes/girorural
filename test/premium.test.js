@@ -13,6 +13,7 @@ test('configuração opcional e rejeição de produção', () => {
 });
 test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas', async t => {
     let row, events, sub, invoice, checkout, subscriptions, calls, fail, commits, clock, sequence, history;
+    const logEventos = [];
     const sdk = new Stripe('sk_test_fixture');
     const db = {
         async execute(sql, args) {
@@ -20,6 +21,7 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
             if (sql.startsWith('INSERT IGNORE INTO premium_assinaturas')) return [{ affectedRows: 0 }];
             if (sql.startsWith('SELECT * FROM premium_assinaturas')) { calls.push({consultaUsuario:args[0]}); return [[{ ...row }]]; }
             if (sql.startsWith('SELECT premium, status')) return [[{ ...row }]];
+            if (sql.includes('COUNT(*) total FROM anuncios')) return [[{ total: 3 }]];
             if (sql.startsWith('INSERT IGNORE INTO stripe_eventos')) {
                 if (events.has(args[0])) return [{ affectedRows: 0 }];
                 events.add(args[0]); return [{ affectedRows: 1 }];
@@ -43,6 +45,7 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
     const stripe = {
         invoices: { async retrieve(id) { return structuredClone(invoice.id === id ? invoice : history.get(id)); }, async *list() { for (const i of history.values()) yield i; } },
         webhooks: sdk.webhooks,
+        billingPortal: { sessions: { async create(data) { calls.push({ portal: data }); return { livemode: false, url: 'https://billing.stripe.com/p/session/fixture' }; } } },
         prices: { async retrieve() { return { livemode: false, active: true, currency: 'brl', unit_amount: 3990, recurring: { interval: 'month', interval_count: 1 } }; } },
         customers: { async create(data, options) { calls.push({ customer: data, options }); return { id: 'cus_fixture', livemode: false }; } },
         subscriptions: { async list() { return { data: subscriptions, has_more: false }; }, async retrieve() { return structuredClone(sub); } },
@@ -54,7 +57,7 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
     };
     const originalFetch = global.fetch;
     global.fetch = async () => new Response(JSON.stringify({ usuario: { id: 1, role: 'usuario' } }));
-    const premium = criarPremium({ db, config: () => ({ stripe, price, base: 'http://localhost:3000' }), env: { STRIPE_WEBHOOK_SECRET: secret, STRIPE_PRICE_ID: price }, now: () => clock });
+    const premium = criarPremium({ db, config: () => ({ stripe, price, base: 'http://localhost:3000' }), env: { STRIPE_WEBHOOK_SECRET: secret, STRIPE_PRICE_ID: price, STRIPE_PRICE_FREE_ID: 'price_free' }, now: () => clock, evento: async e => { logEventos.push(e); } });
     const app = express();
     app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), premium.webhook);
     app.use(express.json()); app.use(cookieParser()); app.use('/api/premium', premium.router);
@@ -130,8 +133,64 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
         fail = true; assert.equal((await webhook(event())).status, 503); assert.equal(events.size, 0); assert.equal(row.premium, false);
         fail = false; assert.equal((await webhook(event())).status, 200); assert.equal(row.premium, true);
     });
-    await caso('status ativo e redirecionamento não concedem benefício sem invoice.paid', async () => {
+    await caso('status ativo e redirecionamento não concedem benefício sem fatura paga', async () => {
+        sub.latest_invoice = { ...invoice, status: 'open' };
         assert.equal((await webhook(event('customer.subscription.updated'))).status, 200); assert.equal(row.premium, false);
+    });
+    await caso('checkout.session.completed guarda a assinatura e muda o plano para Pro', async () => {
+        const e = { id: 'evt_checkout', created: clock, type: 'checkout.session.completed', livemode: false, data: { object: { ...structuredClone(checkout), object: 'checkout.session', mode: 'subscription' } } };
+        assert.equal((await webhook(e)).status, 200);
+        assert.equal(row.premium, true); assert.equal(row.stripe_subscription_id, sub.id); assert.equal(row.stripe_customer_id, 'cus_fixture');
+        const body = await (await originalFetch(base + '/api/premium/status', { headers: { Cookie: 'token=fixture' } })).json();
+        assert.equal(body.plano, 'Pro'); assert.equal(body.pode_gerenciar, true);
+        // Reenvio do mesmo evento: nada muda e não gera outro registro no log.
+        const antes = logEventos.length; fail = true;
+        assert.equal((await webhook(e)).status, 200); assert.equal(events.size, 1); assert.equal(row.premium, true);
+        await new Promise(r => setImmediate(r)); assert.equal(logEventos.length, antes);
+        assert.equal(logEventos.at(-1).acao, 'ASSINATURA_CHECKOUT_CONCLUIDO'); assert.equal(logEventos.at(-1).usuario_id, 1);
+    });
+    await caso('checkout de pagamento avulso (mode=payment) não muda o plano', async () => {
+        const e = { id: 'evt_payment', created: clock, type: 'checkout.session.completed', livemode: false, data: { object: { ...structuredClone(checkout), mode: 'payment', subscription: null } } };
+        assert.equal((await webhook(e)).status, 200); assert.equal(row.premium, false); assert.equal(row.stripe_subscription_id, null);
+    });
+    await caso('invoice.payment_failed marca inadimplência e avisa o usuário', async () => {
+        await webhook(event()); sub.status = 'past_due'; sub.latest_invoice = { ...invoice, id: 'in_falha', status: 'open', attempted: true, amount_remaining: 3990 };
+        assert.equal((await webhook(event('invoice.payment_failed', 'evt_falha'))).status, 200);
+        const body = await (await originalFetch(base + '/api/premium/status', { headers: { Cookie: 'token=fixture' } })).json();
+        assert.equal(body.pagamento_pendente, true); assert.equal(body.situacao, 'Pagamento precisa ser regularizado');
+        await new Promise(r => setImmediate(r)); assert.equal(logEventos.at(-1).acao, 'ASSINATURA_PAGAMENTO_FALHOU');
+        // O Pro não continua de graça: terminado o período pago sem nova fatura, volta para o Gratuito.
+        clock = 1702592000; assert.equal((await (await originalFetch(base + '/api/premium/status', { headers: { Cookie: 'token=fixture' } })).json()).plano, 'Gratuito');
+    });
+    await caso('customer.subscription.deleted volta o usuário para o Free', async () => {
+        await webhook(event()); assert.equal(row.premium, true); sub.status = 'canceled';
+        assert.equal((await webhook(event('customer.subscription.deleted', 'evt_deleted'))).status, 200); assert.equal(row.premium, false);
+        const body = await (await originalFetch(base + '/api/premium/status', { headers: { Cookie: 'token=fixture' } })).json();
+        assert.equal(body.plano, 'Gratuito'); assert.equal(body.pode_assinar, true);
+    });
+    await caso('troca Pro -> Free pelo portal volta para o Gratuito sem cancelar no Stripe', async () => {
+        await webhook(event()); assert.equal(row.premium, true);
+        sub.items.data[0].price.id = 'price_free'; sub.latest_invoice = { ...invoice, id: 'in_free', amount_paid: 0 };
+        assert.equal((await webhook(event('customer.subscription.updated', 'evt_free'))).status, 200);
+        assert.equal(row.premium, false); assert.equal(row.status, 'gratuito');
+        const body = await (await originalFetch(base + '/api/premium/status', { headers: { Cookie: 'token=fixture' } })).json();
+        assert.equal(body.plano, 'Gratuito'); assert.equal(body.pode_gerenciar, true);
+    });
+    await caso('Gerenciar assinatura abre o Billing Portal só para o customer da sessão', async () => {
+        await webhook(event());
+        const r = await originalFetch(base + '/api/premium/portal', { method: 'POST', headers: { Cookie: 'token=fixture', 'Content-Type': 'application/json' }, body: JSON.stringify({ customer: 'cus_outro' }) });
+        assert.equal(r.status, 200); assert.equal((await r.json()).url, 'https://billing.stripe.com/p/session/fixture');
+        const portal = calls.find(c => c.portal).portal; assert.equal(portal.customer, 'cus_fixture'); assert.match(portal.return_url, /^http:\/\/localhost:3000\/painel\.html/);
+        row.stripe_customer_id = null;
+        assert.equal((await originalFetch(base + '/api/premium/portal', { method: 'POST', headers: { Cookie: 'token=fixture' } })).status, 409);
+        assert.equal((await originalFetch(base + '/api/premium/portal', { method: 'POST' })).status, 401);
+    });
+    await caso('uso do mês informa limite do Free e remove limite no Pro', async () => {
+        let uso = await (await originalFetch(base + '/api/premium/uso', { headers: { Cookie: 'token=fixture' } })).json();
+        assert.deepEqual(uso, { plano: 'free', plano_nome: 'Gratuito', anuncios_criados_mes: 3, limite_anuncios_mes: 3, restantes: 0 });
+        await webhook(event());
+        uso = await (await originalFetch(base + '/api/premium/uso', { headers: { Cookie: 'token=fixture' } })).json();
+        assert.equal(uso.plano, 'pro'); assert.equal(uso.limite_anuncios_mes, null);
     });
     await caso('preço ou cliente divergente não concedem benefício', async () => {
         sub.items.data[0].price.id = 'price_outro'; await webhook(event()); assert.equal(row.premium, false);
@@ -156,7 +215,7 @@ test('Premium: HTTP, assinatura real do SDK e integrações externas simuladas',
         let state=await (await originalFetch(base+'/api/premium/status',{headers:{Cookie:'token=fixture'}})).json();assert.equal(state.pagamento_pendente,true);
         clock=1702592000;state=await (await originalFetch(base+'/api/premium/status',{headers:{Cookie:'token=fixture'}})).json();assert.equal(state.premium,false);
         sub.status = 'active'; sub.latest_invoice = structuredClone({...invoice,id:'in_renewal'});sub.latest_invoice.lines.data[0].period={start:1702592000,end:1705184000};sub.items.data[0].current_period_end=1705184000;
-        await webhook(event('customer.subscription.updated', 'evt_updated')); assert.equal(row.premium, false);
+        await webhook(event('customer.subscription.updated', 'evt_updated')); assert.equal(row.premium, true); // renovação paga (latest_invoice) restaura
         invoice = sub.latest_invoice; await webhook(event('invoice.paid', 'evt_renewal')); assert.equal(row.premium, true);
     });
     await caso('status e benefício negam período vencido mesmo com premium persistido true', async () => {

@@ -31,10 +31,12 @@ function estadoPublico(row, price, now = Math.floor(Date.now() / 1000)) {
     if (regularizar) situacao = 'Pagamento precisa ser regularizado';
     else if (premium) situacao = cancelar ? 'Cancelamento ao final do período' : 'Assinatura ativa';
     else if (['pendente', 'incomplete'].includes(row?.status)) situacao = 'Confirmação de pagamento pendente';
+    else if (row?.status === 'gratuito') situacao = 'Plano gratuito (R$ 0 no Stripe)';
     else if (row?.stripe_subscription_id) situacao = row.status === 'canceled' ? 'Assinatura cancelada' : 'Período pago encerrado';
-    return { premium, status: row?.status || 'nenhuma', plano: row?.stripe_subscription_id ? 'Pro' : 'Gratuito',
-        valor_centavos: row?.stripe_subscription_id ? 3990 : 0, situacao, pagamento_pendente: regularizar,
+    return { premium, status: row?.status || 'nenhuma', plano: premium ? 'Pro' : 'Gratuito',
+        valor_centavos: premium ? 3990 : 0, situacao, pagamento_pendente: regularizar,
         cancelamento_programado: cancelar, renovacao_em: renovar ? iso(renovar) : null, termina_em: termina ? iso(termina) : null,
-        pode_assinar: !row?.stripe_subscription_id || ['canceled', 'incomplete_expired'].includes(row.status) };
+        pode_assinar: !row?.stripe_subscription_id || ['canceled', 'incomplete_expired'].includes(row.status),
+        pode_gerenciar: Boolean(row?.stripe_customer_id && row?.stripe_subscription_id) };
 }
 module.exports = { id, subscriptionId, epoch, periodoPago, acessoValido, estadoPublico };
