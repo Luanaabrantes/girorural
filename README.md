@@ -4,6 +4,7 @@
 
 🌐 **No ar:** https://luana-abrantes-isw055.lapps.studio
 📘 **API (Swagger):** https://luana-abrantes-isw055.lapps.studio/apidocs/
+📄 **P2 — Relatório consolidado (arquitetura e atividades 7 a 11):** [docs/P2_ISW055_Luana_Abrantes.pdf](docs/P2_ISW055_Luana_Abrantes.pdf)
 
 > Projeto da disciplina ISW055 (Introdução à Computação em Nuvem), Fatec Pompeia, proposto pelo professor [@siriani](https://github.com/siriani).
 >

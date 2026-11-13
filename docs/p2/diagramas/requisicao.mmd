@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    actor L as Locatário (navegador)
+    participant D as Subdomínio (porta 8216)
+    participant A as girorural-api
+    participant AU as auth-service
+    participant DB as MariaDB
+    participant LG as log-service
+    participant R as Redis
+    L->>D: POST /api/reservas {anuncio_id, inicio, fim} + cookie token
+    D->>A: encaminha para :3000
+    A->>AU: GET /auth/validar (Authorization: Bearer JWT)
+    AU->>AU: jwt.verify(JWT_SECRET)
+    AU->>DB: SELECT id, nome, email, role FROM usuarios WHERE id=?
+    DB-->>AU: papel atual (ex.: LOCATARIO)
+    AU-->>A: 200 {usuario}
+    A->>A: exigir('LOCATARIO','PROPRIETARIO') senão 403 + ACAO_NEGADA
+    A->>DB: BEGIN · anúncio ativo · conflito de datas (FOR UPDATE) · INSERT reservas · COMMIT
+    DB-->>A: id da reserva
+    A->>LG: POST /eventos {usuario_id, acao: RESERVA_SOLICITADA, ip, detalhes}
+    LG->>R: XADD auditoria
+    A-->>L: 201 {id, estado: solicitada, diarias, valor_total}

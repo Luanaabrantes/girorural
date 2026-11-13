@@ -1,0 +1,31 @@
+flowchart TB
+    NAV(["Navegador<br/>locatário · proprietário · admin"])
+    STRIPE(["Stripe (modo de teste)<br/>Checkout · Billing Portal · API"])
+    subgraph PUB["Público: https://luana-abrantes-isw055.lapps.studio"]
+        DOM["Subdomínio HTTPS<br/>→ porta 8216 da VM"]
+    end
+    subgraph VM["VM da disciplina · Docker · stack Portainer girorural-luana-abrantes"]
+        subgraph NET["rede interna catalogo-network (bridge)"]
+            API["girorural-api :3000<br/>Express · telas em public/<br/>/api/* · /apidocs · /health · /metrics"]
+            AUTH["auth-service :3001<br/>cadastro · login · JWT<br/>/auth/validar (papel atual)"]
+            LOG["log-service :3002<br/>POST/GET /eventos"]
+            REDIS[("redis :6379<br/>stream auditoria (AOF)")]
+            MINIO[("minio :9000<br/>fotos de anúncios e perfis")]
+        end
+    end
+    DB[("MariaDB externo<br/>DB_HOST · fora da stack")]
+    SMTP(["SMTP<br/>recuperação de senha"])
+
+    NAV -- "HTTPS + cookie token" --> DOM --> API
+    STRIPE -- "webhooks assinados<br/>/api/stripe/webhook<br/>/api/locacao/stripe/webhook" --> DOM
+    API -- "checkout / portal / releitura" --> STRIPE
+    NAV -. "redirecionado ao Checkout e ao Portal" .-> STRIPE
+    API -- "/auth/* e GET /auth/validar (Bearer)" --> AUTH
+    API -- "POST /eventos" --> LOG
+    AUTH -- "POST /eventos" --> LOG
+    LOG -- "GET /auth/validar (consulta admin)" --> AUTH
+    LOG -- "XADD / XREVRANGE" --> REDIS
+    API -- "S3 API" --> MINIO
+    API -- "SQL (mysql2)" --> DB
+    AUTH -- "SQL usuarios" --> DB
+    AUTH --> SMTP
