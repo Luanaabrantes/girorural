@@ -70,6 +70,14 @@
   caption: legenda,
 )
 
+// Prints altos (página do GitHub + resposta da API): mesma figura, limitada à altura da página.
+#let evidencia-alta(legenda, arquivo) = figure(
+  image(arquivo, height: 19cm, fit: "contain"),
+  kind: image,
+  supplement: [Figura],
+  caption: legenda,
+)
+
 #let registro = state("registro", ())
 
 #let registrar(numero, titulo, planejada, realizada, situacao) = registro.update(l => l + ((
@@ -322,7 +330,9 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   O catálogo de filmes ganhou um plano Premium mensal. O botão de assinar chama a API, que cria uma sessão do Stripe Checkout em modo de teste ligada ao usuário logado. O Premium não é ativado pelo retorno do navegador: o webhook validado com a assinatura do Stripe grava a assinatura em `premium_assinaturas` e registra o id do evento em `stripe_eventos`, para que o mesmo evento não seja processado duas vezes. Na segunda versão (ec5df7e) passei a guardar o período pago, as datas de renovação e cancelamento e um script de sincronização com o Stripe, e o perfil mostra o selo Premium com a validade.
 
-  #evidencia([Atividade 7 — Commit de entrega 1a23979 no GitHub, com hash, data e hora.], arquivo: none)
+  #evidencia([Atividade 7 — Commit de entrega 1a23979 no repositório Luanaabrantes/girorural: página do GitHub e, abaixo, a API com "date": "2026-10-16T03:58:27Z" (16/10/2026 00:58 em Brasília) (1/2: página do GitHub).], arquivo: "prints/a7-commit-pagina.png")
+
+  #evidencia([Atividade 7 — Commit de entrega 1a23979 no repositório Luanaabrantes/girorural: página do GitHub e, abaixo, a API com "date": "2026-10-16T03:58:27Z" (16/10/2026 00:58 em Brasília) (2/2: resposta da API do GitHub com a data e a hora em UTC).], arquivo: "prints/a7-commit-api.png")
 
   #evidencia([Atividade 7 — Stripe Checkout em modo de teste com o cartão 4242, assinatura do Plano Premium de R\$ 9,90/mês.], arquivo: "prints/atividade-7-stripe-checkout.png")
 
@@ -348,9 +358,11 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   Escrevi a documentação que o catálogo de filmes não tinha, lendo o próprio código: escopo e histórico, rotas, diagrama de arquitetura em Mermaid, regras de negócio de autenticação, catálogo, auditoria, Premium e observabilidade, modelo de dados, fluxos principais e limitações conhecidas. No README entrou o link para o `DOCUMENTACAO.md` e a tabela de classificação: o catálogo como SaaS, a VM como IaaS e Docker com Portainer como PaaS de execução, com a ressalva de que os componentes são autogerenciados.
 
-  #evidencia([Atividade 8 — Commit 879e25e no GitHub, com hash, data e hora.], arquivo: none)
+  #evidencia([Atividade 8 — Commit 879e25e no repositório Luanaabrantes/girorural: página do GitHub e, abaixo, a API com "date": "2026-10-16T20:39:01Z" (16/10/2026 17:39 em Brasília) (1/2: página do GitHub).], arquivo: "prints/a8-commit-pagina.png")
 
-  #evidencia([Atividade 8 — README com o link para o DOCUMENTACAO.md.], arquivo: none)
+  #evidencia([Atividade 8 — Commit 879e25e no repositório Luanaabrantes/girorural: página do GitHub e, abaixo, a API com "date": "2026-10-16T20:39:01Z" (16/10/2026 17:39 em Brasília) (2/2: resposta da API do GitHub com a data e a hora em UTC).], arquivo: "prints/a8-commit-api.png")
+
+  #evidencia([Atividade 8 — README no commit 879e25e com o link "Documentação completa do sistema: DOCUMENTACAO.md".], arquivo: "prints/a8-readme.png")
 
   *Dificuldades e como foram resolvidas.*
 
@@ -372,7 +384,9 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   Criei o repositório `Luanaabrantes/girorural` com a cópia integral do histórico do catálogo de filmes, desde o commit 0e3b62a de 20/08/2026, e escrevi o README apresentando o GiroRural, o plano de implementação e a inspeção da arquitetura herdada. Abri sete issues de desenvolvimento (modelo de dados e isolamento, cadastro de equipamentos e anúncios, fotos, busca e filtros, reservas, painel e assinatura com Stripe). O plano previa inicialmente um plano Free com dois anúncios ativos e um Pro com até vinte; na atividade 11 esse modelo foi ajustado para três anúncios novos por mês no Gratuito e Pro sem limite.
 
-  #evidencia([Atividade 9 — Issue de entrega #10 aberta em 23/10/2026, mencionando \@siriani.], arquivo: none)
+  #evidencia([Atividade 9 — Issue de entrega #10 mencionando \@siriani: página do GitHub e, abaixo, a API com "created_at": "2026-10-23T23:44:42Z" (23/10/2026 20:44 em Brasília) (1/2: página do GitHub).], arquivo: "prints/a9-issue-pagina.png")
+
+  #evidencia([Atividade 9 — Issue de entrega #10 mencionando \@siriani: página do GitHub e, abaixo, a API com "created_at": "2026-10-23T23:44:42Z" (23/10/2026 20:44 em Brasília) (2/2: resposta da API do GitHub com a data e a hora em UTC).], arquivo: "prints/a9-issue-api.png")
 
   #evidencia([Atividade 9 — Histórico de commits preservado no repositório novo.], arquivo: "prints/atividade-9-commits.png")
 
@@ -398,7 +412,9 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   O domínio do GiroRural foi implementado sobre a arquitetura herdada: equipamentos, anúncios com galeria de fotos no MinIO, busca com filtros, reservas com controle de conflito de datas, aprovação pelo proprietário, pagamento da locação (simulado na demonstração) e liberação do contato do dono só depois do pagamento. Os papéis passaram a ser LOCATARIO, PROPRIETARIO e ADMIN; toda conta nasce locatária e pode habilitar o modo anunciante. Tentativas de operação sem papel adequado recebem 403 e geram `ACAO_NEGADA` no log-service, e cada ação de negócio gera um evento de auditoria. A stack ficou com limite de 1 GB por contêiner e um catálogo inicial de 33 máquinas.
 
-  #evidencia([Atividade 10 — Issue de entrega #11 aberta em 06/11/2026, mencionando \@siriani.], arquivo: none)
+  #evidencia([Atividade 10 — Issue de entrega #11 mencionando \@siriani: página do GitHub e, abaixo, a API com "created_at": "2026-11-06T23:24:18Z" (06/11/2026 20:24 em Brasília) (1/2: página do GitHub).], arquivo: "prints/a10-issue-pagina.png")
+
+  #evidencia([Atividade 10 — Issue de entrega #11 mencionando \@siriani: página do GitHub e, abaixo, a API com "created_at": "2026-11-06T23:24:18Z" (06/11/2026 20:24 em Brasília) (2/2: resposta da API do GitHub com a data e a hora em UTC).], arquivo: "prints/a10-issue-api.png")
 
   #evidencia([Atividade 10 — Landing do GiroRural no ar no subdomínio da disciplina.], arquivo: "prints/atividade-10-01-landing.jpg")
 
@@ -428,7 +444,9 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   O Premium da atividade 7 virou um modelo de receita completo. Os planos estão definidos num lugar só (`src/planos.js`). O checkout cria uma assinatura mensal recorrente, o webhook trata a criação, a atualização, o cancelamento, a falha de pagamento e a renovação, e o limite do plano é conferido na API a cada criação de anúncio, devolvendo 402 com uma mensagem que explica como liberar. O botão *Gerenciar assinatura* abre o portal do cliente do Stripe para trocar de plano, atualizar o cartão ou cancelar, e o painel administrativo ganhou a aba *Assinaturas e MRR* com assinantes, status e os últimos eventos recebidos.
 
-  #evidencia([Atividade 11 — Issue de entrega #13 aberta em 12/11/2026, mencionando \@siriani.], arquivo: none)
+  #evidencia([Atividade 11 — Issue de entrega #13 mencionando \@siriani: página do GitHub e, abaixo, a API com "created_at": "2026-11-13T02:14:24Z" (12/11/2026 23:14 em Brasília) (1/2: página do GitHub).], arquivo: "prints/a11-issue-pagina.png")
+
+  #evidencia([Atividade 11 — Issue de entrega #13 mencionando \@siriani: página do GitHub e, abaixo, a API com "created_at": "2026-11-13T02:14:24Z" (12/11/2026 23:14 em Brasília) (2/2: resposta da API do GitHub com a data e a hora em UTC).], arquivo: "prints/a11-issue-api.png")
 
   #evidencia([Atividade 11 — Assinatura GiroRural Pro ativa no Stripe (modo de teste).], arquivo: "prints/atividade-11-03-stripe-assinatura-ativa.jpg")
 
