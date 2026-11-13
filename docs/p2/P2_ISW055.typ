@@ -142,7 +142,7 @@ As datas e horas realizadas saíram de duas fontes verificáveis. Para as ativid
 = Arquitetura do SaaS
 // ============================================================
 
-== Componentes e microsserviços
+== Visão geral e componentes
 O GiroRural é formado por cinco contêineres numa única rede Docker interna (`catalogo-network`), mais três dependências externas. Só o `girorural-api` publica porta (8216 no host, 3000 no contêiner), e é por ele que passa tudo o que vem do domínio, inclusive os webhooks do Stripe. Os demais serviços usam apenas `expose` e só existem dentro da rede da stack.
 
 #diagrama([Componentes do GiroRural: o que é público (subdomínio) e o que só existe na rede interna do Docker. Fonte: `docs/p2/diagramas/componentes.mmd`.], "diagramas/componentes.png", largura: 92%)
@@ -202,7 +202,7 @@ O app só abre caminhos (checkout e portal); quem muda o plano no banco é sempr
 + *Cancelamento.* `POST /api/premium/portal` abre o Billing Portal para o customer da sessão. Ao cancelar, chega `customer.subscription.deleted`, o status vira `canceled` e a conta volta ao Gratuito.
 + *Evento repetido.* Na mesma transação que atualiza o plano, o id do evento entra em `stripe_eventos` (chave primária) com `INSERT IGNORE`. Se o Stripe reenviar, nada é inserido e o processamento é pulado; se algo falhar, a transação desfaz também o registro do evento e o Stripe pode tentar de novo. A coluna `state_event_created` impede que um evento antigo, chegando fora de ordem, sobrescreva um estado mais novo.
 
-== Modelo de dados
+== Modelo de dados do domínio
 As tabelas do domínio ficam no mesmo MariaDB da tabela `usuarios`, criada ainda no catálogo de filmes. As migrações estão em `database/` e são aditivas e reexecutáveis.
 
 #diagrama([Modelo de dados do domínio e chaves estrangeiras (colunas principais). Fonte: `docs/p2/diagramas/dados.mmd`.], "diagramas/dados.png", largura: 82%)
@@ -238,7 +238,7 @@ As tabelas do domínio ficam no mesmo MariaDB da tabela `usuarios`, criada ainda
 
 *Segredos.* Chaves do Stripe, `JWT_SECRET`, senhas do banco, do MinIO e do SMTP ficam só nas variáveis da stack no Portainer. O repositório tem apenas `.env.example` com os nomes, o `.gitignore` exclui os arquivos `.env`, e o Stripe está em modo de teste: o código recusa objetos com `livemode: true`.
 
-== Observabilidade e CI/CD
+== Observabilidade, CI/CD e documentação da API
 Fiz as três atividades extras no primeiro bimestre e elas continuam ativas no GiroRural:
 
 - *Health checks:* `/live` (processo vivo) e `/health` (prontidão, com 503 quando uma dependência falha) na API, no auth-service e no log-service. O `/health` da API testa MariaDB, auth-service, log-service e MinIO, e o Docker usa esses endpoints nos `healthcheck` da stack.
@@ -246,7 +246,7 @@ Fiz as três atividades extras no primeiro bimestre e elas continuam ativas no G
 - *Swagger:* #link(site + "/apidocs/")[`/apidocs`] (API do GiroRural) e `/apidocs/auth`, gerados a partir de anotações `@openapi` no código e validados no CI.
 - *CI/CD:* o workflow #link(repo + "/blob/main/.github/workflows/cicd.yml")[`cicd.yml`] roda em push e pull request: `npm ci` nos três serviços, `npm test`, `npm run docs:validate`, build das quatro imagens e, em push, publicação no GHCR com a tag `sha-<commit>`. O deploy é semiautomático: eu troco `IMAGE_TAG` na stack e clico em *Update the stack*.
 
-== IaaS · PaaS · SaaS
+== Camadas IaaS, PaaS e SaaS do projeto
 #table(
   columns: (2cm, 1fr, 3.6cm),
   fill: (x, y) => if y == 0 { luma(235) } else { none },
