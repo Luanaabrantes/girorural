@@ -1,0 +1,66 @@
+erDiagram
+    usuarios ||--o| perfis : "usuario_id"
+    usuarios ||--o| premium_assinaturas : "usuario_id"
+    usuarios ||--o{ reset_tokens : "usuario_id"
+    usuarios ||--o{ equipamentos : "proprietario_id"
+    usuarios ||--o{ anuncios : "proprietario_id"
+    usuarios ||--o{ reservas : "solicitante_id"
+    usuarios ||--o{ anuncio_imagens : "proprietario_id"
+    equipamentos ||--o{ anuncios : "equipamento_id"
+    anuncios ||--o{ anuncio_imagens : "anuncio_id"
+    anuncios ||--o{ reservas : "anuncio_id"
+    reservas ||--o{ locacao_pagamentos : "reserva_id"
+    usuarios {
+        int id PK
+        varchar email UK
+        varchar senha_hash
+        varchar role "ADMIN PROPRIETARIO LOCATARIO"
+    }
+    premium_assinaturas {
+        int usuario_id PK,FK
+        varchar stripe_customer_id UK
+        varchar stripe_subscription_id UK
+        varchar stripe_price_id
+        varchar status
+        bigint paid_period_end
+        bigint state_event_created
+    }
+    stripe_eventos {
+        varchar id PK "evt_..."
+        varchar tipo
+    }
+    equipamentos {
+        int id PK
+        int proprietario_id FK
+        varchar nome
+        varchar categoria
+        enum estado
+    }
+    anuncios {
+        int id PK
+        int equipamento_id FK
+        int proprietario_id FK
+        decimal diaria
+        enum estado
+        enum moderacao
+    }
+    reservas {
+        int id PK
+        int anuncio_id FK
+        int solicitante_id FK
+        date inicio
+        date fim
+        enum estado
+        decimal valor_total
+    }
+    locacao_pagamentos {
+        bigint id PK
+        int reserva_id FK
+        varchar stripe_checkout_id UK
+        enum status
+    }
+    perfis {
+        int usuario_id PK,FK
+        varchar foto_chave
+        varchar telefone
+    }

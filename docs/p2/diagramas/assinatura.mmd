@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor P as Proprietário
+    participant A as girorural-api
+    participant S as Stripe (teste)
+    participant DB as MariaDB
+    participant LG as log-service
+    P->>A: POST /api/premium/checkout
+    A->>DB: premium_assinaturas: cria/reusa stripe_customer_id
+    A->>S: checkout.sessions.create(mode=subscription, customer, client_reference_id)
+    S-->>P: página do Checkout (cartão 4242 4242 4242 4242)
+    S->>A: POST /api/stripe/webhook checkout.session.completed (Stripe-Signature)
+    A->>A: constructEvent(corpo bruto, STRIPE_WEBHOOK_SECRET) · livemode=false, senão 400
+    A->>DB: BEGIN · INSERT IGNORE stripe_eventos(id)
+    alt evento novo
+        A->>S: relê subscription + latest_invoice
+        A->>DB: UPDATE premium_assinaturas (status, price, período pago) · COMMIT
+        A->>LG: POST /eventos ASSINATURA_*
+    else evento repetido
+        A->>DB: nada inserido → COMMIT sem alterar o plano
+    end
+    A-->>S: 200 {recebido: true}
+    P->>A: POST /api/anuncios
+    A->>DB: planoDoUsuario + anúncios criados no mês
+    A-->>P: 201 (Pro) ou 402 LIMITE_DO_PLANO (Gratuito, 4º do mês)
+    P->>A: POST /api/premium/portal
+    A->>S: billingPortal.sessions.create(customer)
+    P->>S: cancela a assinatura no portal
+    S->>A: customer.subscription.deleted
+    A->>DB: status canceled → volta ao Gratuito
