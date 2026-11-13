@@ -340,7 +340,7 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   *Dificuldades e como foram resolvidas.*
 
-  A parte mais difícil foi entender que o retorno do checkout não prova pagamento: só o webhook assinado pode mudar o plano. Também precisei tratar eventos repetidos e fora de ordem, o que resolvi com a tabela de eventos e a marca de tempo do último evento aplicado. O código foi publicado no dia 09/10, mas eu não tinha salvo o print da tela do Checkout, e o README registrou essa pendência até 16/10, quando incluí as capturas reais do fluxo. O professor havia prorrogado o prazo da atividade 7 até 16/10/2026, e a entrega (commit 1a23979 às 00:58 e issue \#6 no repositório catalogo-filmes) ficou dentro desse prazo. A data planejada no quadro continua sendo a publicada na lista de atividades, 09/10/2026.
+  A parte mais difícil foi entender que o retorno do checkout não prova pagamento: só o webhook assinado pode mudar o plano. Também precisei tratar eventos repetidos e fora de ordem, o que resolvi com a tabela de eventos e a marca de tempo do último evento aplicado. O código foi publicado no dia 09/10, e as capturas do fluxo entraram no README em 16/10. O professor havia prorrogado o prazo da atividade 7 até 16/10/2026, e a entrega (commit 1a23979 às 00:58 e issue \#6 no repositório catalogo-filmes) ficou dentro desse prazo. A data planejada no quadro continua sendo a publicada na lista de atividades, 09/10/2026.
 ]
 
 #atividade(
