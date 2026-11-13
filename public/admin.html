@@ -9,6 +9,7 @@
   <div id="area" hidden>
     <div class="tabs" role="tablist" aria-label="Seções administrativas">
       <button role="tab" id="t-visao" aria-controls="p-visao" aria-selected="true">Visão geral</button>
+      <button role="tab" id="t-assinaturas" aria-controls="p-assinaturas" aria-selected="false">Assinaturas e MRR</button>
       <button role="tab" id="t-moderacao" aria-controls="p-moderacao" aria-selected="false">Moderação de anúncios</button>
       <button role="tab" id="t-reservas" aria-controls="p-reservas" aria-selected="false">Reservas</button>
       <button role="tab" id="t-usuarios" aria-controls="p-usuarios" aria-selected="false">Usuários</button>
@@ -20,6 +21,18 @@
         <section class="panel"><h2>Reservas por estado</h2><div id="porEstado"></div></section>
         <section class="panel"><h2>Serviços</h2><div id="servicos"><p class="notice">Consultando saúde dos serviços...</p></div></section>
       </div>
+    </section>
+    <section role="tabpanel" id="p-assinaturas" aria-labelledby="t-assinaturas" hidden>
+      <p class="notice">Stripe em <strong>modo de teste</strong>: nenhuma cobrança é real. O plano de cada usuário é a cópia no banco mantida pelos webhooks.</p>
+      <div class="stats" id="saasStats"></div>
+      <div class="duas-colunas">
+        <section class="panel"><h2>Usuários por plano</h2><div id="porPlano"></div></section>
+        <section class="panel"><h2>Assinaturas por status</h2><div id="porStatus"></div></section>
+      </div>
+      <h2>Assinantes</h2>
+      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Usuário</th><th>Plano</th><th>Status no Stripe</th><th>Situação</th><th>Renova / termina</th></tr></thead><tbody id="assinantes"></tbody></table></div>
+      <h2>Últimos eventos do webhook</h2>
+      <div class="tabela-wrap"><table class="tabela"><thead><tr><th>Recebido em</th><th>Evento</th><th>ID do evento</th></tr></thead><tbody id="stripeEventos"></tbody></table></div>
     </section>
     <section role="tabpanel" id="p-moderacao" aria-labelledby="t-moderacao" hidden>
       <form id="filtroAnuncios" class="toolbar" role="search">

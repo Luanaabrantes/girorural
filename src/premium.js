@@ -43,10 +43,75 @@ const express = require('express');
  *                   nullable: true
  *                 pode_assinar:
  *                   type: boolean
+ *                 pode_gerenciar:
+ *                   type: boolean
+ *                   description: Há assinatura vinculada; o botão Gerenciar assinatura abre o portal do cliente
  *       '401':
  *         description: Sessão ausente ou inválida
  *       '503':
  *         description: Banco, migração ou autenticação indisponível
+ * /api/premium/uso:
+ *   get:
+ *     tags: [Assinatura]
+ *     summary: Consultar o uso do mês e o limite do plano do usuário da sessão
+ *     operationId: get_api_premium_uso
+ *     description: Plano lido do banco a cada requisição. Gratuito cria até 3 anúncios por mês; Pro não tem limite (limite_anuncios_mes null).
+ *     security:
+ *       - sessao: []
+ *     responses:
+ *       '200':
+ *         description: Plano, anúncios criados no mês corrente e limite
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [plano, plano_nome, anuncios_criados_mes, limite_anuncios_mes, restantes]
+ *               properties:
+ *                 plano:
+ *                   type: string
+ *                   enum: [free, pro]
+ *                 plano_nome:
+ *                   type: string
+ *                 anuncios_criados_mes:
+ *                   type: integer
+ *                 limite_anuncios_mes:
+ *                   type: integer
+ *                   nullable: true
+ *                 restantes:
+ *                   type: integer
+ *                   nullable: true
+ *       '401':
+ *         description: Sessão ausente ou inválida
+ *       '503':
+ *         description: Banco indisponível
+ * /api/premium/portal:
+ *   post:
+ *     tags: [Assinatura]
+ *     summary: Abrir o portal do cliente do Stripe (Gerenciar assinatura)
+ *     operationId: post_api_premium_portal
+ *     description: Cria uma sessão do Billing Portal (modo de teste) para o customer guardado no usuário da sessão. Troca de plano e cancelamento acontecem no Stripe e chegam ao banco pelos webhooks.
+ *     security:
+ *       - sessao: []
+ *     responses:
+ *       '200':
+ *         description: URL do portal do cliente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [url]
+ *               properties:
+ *                 url:
+ *                   type: string
+ *                   format: uri
+ *       '400':
+ *         description: Objeto Stripe fora do modo de teste
+ *       '401':
+ *         description: Sessão ausente ou inválida
+ *       '409':
+ *         description: Usuário ainda sem customer no Stripe (nunca assinou)
+ *       '503':
+ *         description: Stripe não configurado ou indisponível
  * /api/premium/checkout:
  *   post:
  *     tags: [Assinatura]
@@ -81,7 +146,7 @@ const express = require('express');
  *     summary: Receber webhook Stripe assinado de teste
  *     operationId: post_api_stripe_webhook
  *     security: []
- *     description: Corpo bruto validado pelo SDK. invoice.paid confirma pagamento, vínculos e período da linha da fatura; eventos da assinatura atualizam situação sem comprovar pagamento. Acesso expira por data mesmo sem webhook; período pago é monotônico e status tem marca temporal. Registro persistente transacional e idempotente, sem payload. Falha 503 permite reenvio.
+ *     description: Corpo bruto validado pelo SDK. Trata checkout.session.completed, customer.subscription.created/updated/deleted, invoice.paid e invoice.payment_failed. A fatura paga é relida do Stripe (invoice.paid ou latest_invoice da assinatura) e confirma pagamento, vínculos e período da linha da fatura; eventos da assinatura atualizam situação sem comprovar pagamento. Acesso expira por data mesmo sem webhook; período pago é monotônico e status tem marca temporal. Registro persistente transacional e idempotente, sem payload. Falha 503 permite reenvio.
  *     parameters:
  *       - in: header
  *         name: Stripe-Signature
@@ -116,6 +181,7 @@ const express = require('express');
  */
 const Stripe = require('stripe');
 const { id, subscriptionId, epoch, periodoPago, acessoValido, estadoPublico } = require('./premiumPeriodo');
+const { usoDoMes } = require('./planos');
 const terminal = status => ['canceled', 'incomplete_expired'].includes(status);
 class ErroPremium extends Error {
     constructor(message, status = 503) { super(message); this.status = status; }
@@ -136,7 +202,17 @@ function teste(objeto) {
     if (!objeto || objeto.livemode !== false) throw new ErroPremium('Objeto Stripe fora do modo de teste.', 400);
     return objeto;
 }
-function criarPremium({ db = require('./database'), autenticar = require('./middlewareAuth'), config = () => configurar(), env = process.env, now = () => Math.floor(Date.now() / 1000) } = {}) {
+const eventoPadrao = dados => require('./rural/rotas').registrarEvento(dados);
+// Ação registrada no log-service para cada evento de assinatura processado.
+const ACOES = {
+    'checkout.session.completed': 'ASSINATURA_CHECKOUT_CONCLUIDO',
+    'customer.subscription.created': 'ASSINATURA_CRIADA',
+    'customer.subscription.updated': 'ASSINATURA_ATUALIZADA',
+    'customer.subscription.deleted': 'ASSINATURA_ENCERRADA',
+    'invoice.paid': 'ASSINATURA_FATURA_PAGA',
+    'invoice.payment_failed': 'ASSINATURA_PAGAMENTO_FALHOU'
+};
+function criarPremium({ db = require('./database'), autenticar = require('./middlewareAuth'), config = () => configurar(), env = process.env, now = () => Math.floor(Date.now() / 1000), evento = eventoPadrao } = {}) {
     async function transacao(fn) {
         const c = await db.getConnection();
         try { await c.beginTransaction(); const result = await fn(c); await c.commit(); return result; }
@@ -158,6 +234,24 @@ function criarPremium({ db = require('./database'), autenticar = require('./midd
             const [rows] = await db.execute('SELECT * FROM premium_assinaturas WHERE usuario_id = ?', [req.usuario.id]);
             res.json(estadoPublico(rows[0], env.STRIPE_PRICE_ID || process.env.STRIPE_PRICE_ID, now()));
         } catch { res.status(503).json({ mensagem: 'Não foi possível consultar Premium. Verifique a migração da atividade 7.' }); }
+    });
+    router.get('/uso', async (req, res) => {
+        try { res.json(await usoDoMes(db, req.usuario.id, { price: env.STRIPE_PRICE_ID || process.env.STRIPE_PRICE_ID, now: now() })); }
+        catch { res.status(503).json({ mensagem: 'Não foi possível consultar o uso do plano.' }); }
+    });
+    // Billing Portal: o cliente troca de plano e cancela sozinho, no Stripe. Quem muda o plano no banco é o webhook.
+    router.post('/portal', async (req, res) => {
+        try {
+            const { stripe, base } = config();
+            const [rows] = await db.execute('SELECT * FROM premium_assinaturas WHERE usuario_id = ?', [req.usuario.id]);
+            const customer = rows[0]?.stripe_customer_id;
+            if (!customer) throw new ErroPremium('Você ainda não tem assinatura. Assine o Pro para gerenciar o plano.', 409);
+            const portal = teste(await stripe.billingPortal.sessions.create({
+                customer, return_url: `${base}/painel.html?plano=portal#meu-plano`,
+                ...(env.STRIPE_PORTAL_CONFIGURATION_ID ? { configuration: env.STRIPE_PORTAL_CONFIGURATION_ID } : {})
+            }));
+            res.json({ url: portal.url });
+        } catch (e) { res.status(e instanceof ErroPremium ? e.status : 503).json({ mensagem: e instanceof ErroPremium ? e.message : 'Não foi possível abrir o portal do cliente.' }); }
     });
     router.post('/checkout', async (req, res) => {
         try {
@@ -216,7 +310,9 @@ function criarPremium({ db = require('./database'), autenticar = require('./midd
         }
         // Snapshot atual sob lock. Eventos antigos não sobrescrevem situações mais recentes.
         if (created >= Number(row.state_event_created || 0)) {
-            row.status = correto ? sub.status : 'preco_invalido';
+            // Troca para o preço Free (R$ 0) no portal: assinatura segue viva no Stripe, mas o plano é o Gratuito.
+            const gratuito = env.STRIPE_PRICE_FREE_ID && items.length === 1 && id(items[0].price) === env.STRIPE_PRICE_FREE_ID;
+            row.status = correto || terminal(sub.status) ? sub.status : gratuito ? 'gratuito' : 'preco_invalido';
             row.stripe_price_id = correto ? price : id(items[0]?.price) || null;
             row.cancel_at_period_end = Boolean(sub.cancel_at_period_end);
             row.cancel_at = epoch(sub.cancel_at);
@@ -268,13 +364,15 @@ function criarPremium({ db = require('./database'), autenticar = require('./midd
     }
     async function processar(event, stripe, price) {
         teste(event);
-        const supported = ['invoice.paid', 'invoice.payment_failed', 'customer.subscription.updated', 'customer.subscription.deleted', 'customer.subscription.created'];
-        await transacao(async c => {
+        const supported = Object.keys(ACOES);
+        return transacao(async c => {
             // INSERT único faz eventos simultâneos aguardarem commit/rollback.
             const [insert] = await c.execute('INSERT IGNORE INTO stripe_eventos (id, tipo) VALUES (?, ?)', [event.id, event.type]);
             if (!insert.affectedRows || !supported.includes(event.type)) return;
             const object = teste(event.data.object);
-            const subId = event.type.startsWith('invoice.') ? subscriptionId(object) : object.id;
+            // checkout.session.completed traz a sessão; a assinatura vem em object.subscription.
+            const subId = event.type === 'checkout.session.completed' ? (object.mode === 'subscription' ? id(object.subscription) : null)
+                : event.type.startsWith('invoice.') ? subscriptionId(object) : object.id;
             if (!subId) return;
             // Descobre usuário, mas só aceita o cliente previamente associado pelo backend.
             const initial = teste(await stripe.subscriptions.retrieve(subId));
@@ -298,8 +396,13 @@ function criarPremium({ db = require('./database'), autenticar = require('./midd
                 if (!row.stripe_checkout_id) await c.execute('UPDATE premium_assinaturas SET stripe_checkout_id = ? WHERE usuario_id = ?', [checkout.id, usuarioId]);
             }
             if (event.type.startsWith('invoice.') && (id(object.customer) !== row.stripe_customer_id || subscriptionId(object) !== sub.id)) return;
-            const invoice = event.type === 'invoice.paid' ? teste(await stripe.invoices.retrieve(object.id)) : null;
+            if (event.type === 'checkout.session.completed' && (object.client_reference_id !== usuarioId || id(object.customer) !== row.stripe_customer_id)) return;
+            // A fatura paga vem do próprio Stripe (releitura com expand), nunca do navegador:
+            // invoice.paid relê a fatura; os demais eventos usam a última fatura da assinatura, se paga.
+            const invoice = event.type === 'invoice.paid' ? teste(await stripe.invoices.retrieve(object.id))
+                : sub.latest_invoice?.status === 'paid' ? sub.latest_invoice : null;
             await atualizar(c, row, sub, price, invoice, event.created || 0);
+            return { usuario_id: Number(usuarioId), acao: ACOES[event.type], detalhes: { evento: event.type, evento_id: event.id, status: row.status, plano: row.premium ? 'Pro' : 'Gratuito', pagamento_pendente: Boolean(row.payment_problem) } };
 
         });
     }
@@ -314,8 +417,11 @@ function criarPremium({ db = require('./database'), autenticar = require('./midd
             event = cfg.stripe.webhooks.constructEvent(req.body, req.get('Stripe-Signature'), env.STRIPE_WEBHOOK_SECRET);
             teste(event);
         } catch { return res.status(400).json({ mensagem: 'Assinatura inválida ou evento fora do modo de teste.' }); }
-        try { await processar(event, cfg.stripe, cfg.price); res.json({ recebido: true }); }
-        catch { res.status(503).json({ mensagem: 'Não foi possível processar o evento. Tente novamente.' }); }
+        let registro;
+        try { registro = await processar(event, cfg.stripe, cfg.price); res.json({ recebido: true }); }
+        catch { return res.status(503).json({ mensagem: 'Não foi possível processar o evento. Tente novamente.' }); }
+        // Só eventos novos chegam aqui: um reenvio do Stripe já está em stripe_eventos e não gera outro registro.
+        if (registro) Promise.resolve().then(() => evento({ ...registro, ip: req.ip })).catch(() => console.error('Evento de assinatura não registrado no log-service.'));
     }
     return { router, webhook, processar, sincronizar, exigirPremium };
 }
