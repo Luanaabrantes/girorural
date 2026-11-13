@@ -366,7 +366,7 @@ Tabela gerada a partir das fichas da seção 5. Horário de Brasília (UTC−03)
 
   *Dificuldades e como foram resolvidas.*
 
-  A dificuldade foi descrever o que o código faz de verdade, e não o que eu lembrava de ter feito. Algumas suposições, como o MariaDB fazer parte da stack, estavam erradas: o Compose não define o banco, que é externo. Também foi preciso separar o que é IaaS, PaaS e SaaS no recorte da disciplina sem afirmar contratações que o projeto não tem. Resolvi conferindo cada afirmação nos arquivos e registrando as limitações no próprio documento.
+  A maior dificuldade foi a leitura reversa do código. O catálogo tinha crescido uma atividade por vez, em branches diferentes, e precisei voltar ao histórico de commits para entender em que ordem cada parte entrou e o que cada serviço fazia de fato. Ao conferir os arquivos, percebi que algumas coisas que eu dava como certas não batiam com o código: o MariaDB, por exemplo, não está no Docker Compose, é um banco externo à stack. Também tive dúvida na classificação das camadas, porque o mesmo componente muda de camada conforme quem o gerencia. Defini a VM da disciplina como IaaS, o Docker com o Portainer como PaaS e o catálogo como SaaS para quem usa. Para resolver, conferi cada afirmação nos arquivos do repositório e registrei no próprio documento as limitações e o que não dava para comprovar.
 ]
 
 #atividade(
